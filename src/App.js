@@ -22,29 +22,16 @@ const FirebaseProvider = ({ children }) => {
 
   useEffect(() => {
     // Initialize Firebase
-    // In a generic sandbox like CodeSandbox, __app_id and __firebase_config might be undefined.
-    // Provide sensible fallbacks or ensure they are configured in your hosting environment.
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    let firebaseConfig = {};
-    try {
-      firebaseConfig = typeof __firebase_config !== 'undefined' && __firebase_config ? JSON.parse(__firebase_config) : {};
-    } catch (e) {
-      console.error("Error parsing __firebase_config:", e);
-      // Fallback to an empty config if parsing fails
-      firebaseConfig = {};
-    }
-
-    // You can manually add your Firebase config here if you want data persistence in CodeSandbox
-    /*
-    firebaseConfig = {
-      apiKey: "YOUR_FIREBASE_API_KEY", // e.g., "AIzaSyC..."
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-      appId: "YOUR_APP_ID"
+    // Use environment variables for config and app id
+    const appId = process.env.REACT_APP_FIREBASE_APP_ID || 'default-app-id';
+    let firebaseConfig = {
+      apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+      authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+      storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.REACT_APP_FIREBASE_APP_ID
     };
-    */
 
     // Only attempt to initialize Firebase if a minimal config is present
     if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
@@ -64,8 +51,8 @@ const FirebaseProvider = ({ children }) => {
       // Sign in with custom token or anonymously
       const signIn = async () => {
         try {
-          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-            await signInWithCustomToken(firebaseAuth, __initial_auth_token);
+          if (process.env.REACT_APP_INITIAL_AUTH_TOKEN) {
+            await signInWithCustomToken(firebaseAuth, process.env.REACT_APP_INITIAL_AUTH_TOKEN);
           } else {
             await signInAnonymously(firebaseAuth);
           }
@@ -162,7 +149,7 @@ Despite some growth, the economy remained largely agrarian and faced significant
 - 1905: Abolition of the traditional imperial examination system, leading to the establishment of modern schools.
 - Promotion of Western learning.
 These changes laid some groundwork for social and educational modernization, but traditional customs and values remained strong.`,
-    diplomatic: `Diplomatically, the Late Qing period was marked by continued foreign encroachment and unequal treaties, limiting China's sovereignty. The reforms did not significantly alter China's weak international position.`,
+    diplomatic: `Diplomatically, the Late Qing period was marked by continued foreign encroachment and unequal treaties, limiting China's sovereignty. The reforms did not significantly altered China's weak international position.`,
     military: `Military reforms included the establishment of New Armies (Xinjun) trained in Western methods. These armies, however, sometimes became a base for revolutionary activities, as seen in the Wuchang Uprising.`
   },
   "1911 Revolution (1911)": {
@@ -325,52 +312,60 @@ China's international standing significantly improved.`,
 };
 
 // --- Helper Functions for LLM Calls ---
-const callGeminiAPI = async (prompt, schema = null) => {
-  let chatHistory = [];
-  chatHistory.push({ role: "user", parts: [{ text: prompt }] });
-
-  const payload = { contents: chatHistory };
+const callFireworksAPI = async (prompt, schema = null) => {
+  const payload = {
+    model: "accounts/pshe/deployedModels/llama-v3p1-8b-instruct-k8nueweh",
+    max_tokens: 16384,
+    top_p: 1,
+    top_k: 40,
+    presence_penalty: 0,
+    frequency_penalty: 0,
+    temperature: 0.6,
+    messages: [
+      {
+        role: "user",
+        content: prompt
+      }
+    ]
+  };
 
   if (schema) {
-    payload.generationConfig = {
-      responseMimeType: "application/json",
-      responseSchema: schema,
-    };
+    payload.response_format = { type: "json_object" };
   }
 
-  // IMPORTANT: Replace "YOUR_GEMINI_API_KEY_HERE" with your actual Gemini API key.
-  // Get one from Google AI Studio: https://aistudio.google.com/app/apikey
-  const apiKey = "YOUR_GEMINI_API_KEY_HERE"; 
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  // IMPORTANT: Replace "YOUR_FIREWORKS_API_KEY_HERE" with your actual Fireworks API key.
+  const apiKey = "YOUR_FIREWORKS_API_KEY_HERE";
+  const apiUrl = "https://api.fireworks.ai/inference/v1/chat/completions";
 
-  if (!apiKey || apiKey === "YOUR_GEMINI_API_KEY_HERE") {
-    console.error("Gemini API Key is missing or not set. Please replace 'YOUR_GEMINI_API_KEY_HERE' in the code.");
-    // Returning null will trigger the error message in the components
-    return null; 
+  if (!apiKey || apiKey === "YOUR_FIREWORKS_API_KEY_HERE") {
+    console.error("Fireworks API Key is missing or not set. Please replace 'YOUR_FIREWORKS_API_KEY_HERE' in the code.");
+    return null;
   }
 
   try {
     const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
       body: JSON.stringify(payload)
     });
     const result = await response.json();
 
-    if (result.candidates && result.candidates.length > 0 &&
-      result.candidates[0].content && result.candidates[0].content.parts &&
-      result.candidates[0].content.parts.length > 0) {
-      const text = result.candidates[0].content.parts[0].text;
+    if (result.choices && result.choices.length > 0 && result.choices[0].message) {
+      const text = result.choices[0].message.content;
       if (schema) {
         return JSON.parse(text);
       }
       return text;
     } else {
-      console.error("Unexpected API response structure or no candidates:", result);
+      console.error("Unexpected API response structure or no choices:", result);
       return null;
     }
   } catch (error) {
-    console.error("Error calling Gemini API:", error);
+    console.error("Error calling Fireworks API:", error);
     return null;
   }
 };
@@ -453,9 +448,9 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
     const fetchQuestions = async () => {
       setLoading(true);
       const content = historicalContent[selectedPeriod].summary + " " +
-                      historicalContent[selectedPeriod].political + " " +
-                      historicalContent[selectedPeriod].economic + " " +
-                      historicalContent[selectedPeriod].social_cultural_educational;
+        historicalContent[selectedPeriod].political + " " +
+        historicalContent[selectedPeriod].economic + " " +
+        historicalContent[selectedPeriod].social_cultural_educational;
 
       const prompt = `Generate 3 multiple-choice questions (with 4 options each, clearly labeled A, B, C, D) and 2 fill-in-the-blank questions about the "${selectedPeriod}" in Chinese history, focusing on its modernization and transformation. The content should be based on the following historical information:
       
@@ -524,7 +519,7 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
         required: ["mc_questions", "fill_in_blanks"]
       };
 
-      const generatedQuestions = await callGeminiAPI(prompt, schema);
+      const generatedQuestions = await callFireworksAPI(prompt, schema);
       if (generatedQuestions) {
         setQuestions(generatedQuestions);
         // Initialize user answers
@@ -537,7 +532,7 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
         });
         setUserAnswers(initialAnswers);
       } else {
-        setMessage("Failed to load questions. Please ensure your Gemini API key is correctly set.");
+        setMessage("Failed to load questions. Please ensure your Fireworks API key is correctly set.");
       }
       setLoading(false);
     };
@@ -558,11 +553,11 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
     }
     hintPrompt += `The hint should guide the student without revealing the direct answer. Focus on a related concept or a key event from the period.`;
 
-    const hint = await callGeminiAPI(hintPrompt);
+    const hint = await callFireworksAPI(hintPrompt);
     if (hint) {
       setHints(prev => ({ ...prev, [`${questionType}_${index}`]: hint }));
     } else {
-      setMessage("Failed to get hint. Please ensure your Gemini API key is correctly set.");
+      setMessage("Failed to get hint. Please ensure your Fireworks API key is correctly set.");
     }
     setHintLoading(prev => ({ ...prev, [`${questionType}_${index}`]: false }));
   };
@@ -595,7 +590,7 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
 
     // Save to Firestore
     if (db && userId) {
-      const docRef = doc(db, `artifacts/${typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'}/users/${userId}/history_revision_app`, selectedPeriod);
+      const docRef = doc(db, `artifacts/${process.env.REACT_APP_FIREBASE_APP_ID || 'default-app-id'}/users/${userId}/history_revision_app`, selectedPeriod);
       try {
         await setDoc(docRef, {
           checkpoint1: {
@@ -678,84 +673,84 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
           <div key={`fib-${qIndex}`} className="bg-gray-50 p-4 rounded-lg shadow-sm">
             <p className="font-semibold text-gray-700 mb-2">Fill-in-Blank Question {qIndex + 1}: {q.question}</p>
             <input
-                  type="text"
-                  name={`fib_${qIndex}`}
-                  value={userAnswers[`fib_${qIndex}`] || ''}
-                  onChange={handleInputChange}
-                  disabled={showResults}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-                {!showResults && (
-                  <button
-                    onClick={() => handleGetHint('fib', qIndex, q.question)}
-                    disabled={hintLoading[`fib_${qIndex}`]}
-                    className="mt-2 bg-yellow-400 hover:bg-yellow-500 text-white text-sm font-bold py-1 px-3 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {hintLoading[`fib_${qIndex}`] ? 'Loading Hint...' : '✨ Get Hint'}
-                  </button>
-                )}
-                {hints[`fib_${qIndex}`] && !showResults && (
-                  <p className="text-sm mt-2 p-2 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-md">
-                    Hint: {hints[`fib_${qIndex}`]}
-                  </p>
-                )}
-                {showResults && (
-                  <p className="text-sm mt-2">
-                    Your Answer: <span className={`${userAnswers[`fib_${qIndex}`].toLowerCase().trim() === q.answer.toLowerCase().trim() ? 'text-green-600' : 'text-red-600'} font-semibold`}>{userAnswers[`fib_${qIndex}`] || 'N/A'}</span>.
-                    Correct Answer: <span className="text-green-600 font-semibold">{q.answer}</span>
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {!showResults ? (
-            <div className="flex justify-between mt-8">
-              <BackButton onClick={onBack} />
+              type="text"
+              name={`fib_${qIndex}`}
+              value={userAnswers[`fib_${qIndex}`] || ''}
+              onChange={handleInputChange}
+              disabled={showResults}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            />
+            {!showResults && (
               <button
-                onClick={handleSubmit}
-                className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+                onClick={() => handleGetHint('fib', qIndex, q.question)}
+                disabled={hintLoading[`fib_${qIndex}`]}
+                className="mt-2 bg-yellow-400 hover:bg-yellow-500 text-white text-sm font-bold py-1 px-3 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Submit Answers
+                {hintLoading[`fib_${qIndex}`] ? 'Loading Hint...' : '✨ Get Hint'}
               </button>
-            </div>
-          ) : (
-            <div className="mt-8 text-center">
-              <p className="text-2xl font-bold text-gray-800 mb-4">Your Score: {score} / 5</p>
-              <div className="flex justify-between mt-4">
-                <BackButton onClick={onBack} />
-                <button
-                  onClick={() => onComplete(score)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-                >
-                  Next Checkpoint
-                </button>
-              </div>
-            </div>
-          )}
-          {message && <MessageBox message={message} onClose={() => setMessage(null)} />}
+            )}
+            {hints[`fib_${qIndex}`] && !showResults && (
+              <p className="text-sm mt-2 p-2 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-md">
+                Hint: {hints[`fib_${qIndex}`]}
+              </p>
+            )}
+            {showResults && (
+              <p className="text-sm mt-2">
+                Your Answer: <span className={`${userAnswers[`fib_${qIndex}`].toLowerCase().trim() === q.answer.toLowerCase().trim() ? 'text-green-600' : 'text-red-600'} font-semibold`}>{userAnswers[`fib_${qIndex}`] || 'N/A'}</span>.
+                Correct Answer: <span className="text-green-600 font-semibold">{q.answer}</span>
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {!showResults ? (
+        <div className="flex justify-between mt-8">
+          <BackButton onClick={onBack} />
+          <button
+            onClick={handleSubmit}
+            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+          >
+            Submit Answers
+          </button>
         </div>
-      );
-    };
+      ) : (
+        <div className="mt-8 text-center">
+          <p className="text-2xl font-bold text-gray-800 mb-4">Your Score: {score} / 5</p>
+          <div className="flex justify-between mt-4">
+            <BackButton onClick={onBack} />
+            <button
+              onClick={() => onComplete(score)}
+              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+            >
+              Next Checkpoint
+            </button>
+          </div>
+        </div>
+      )}
+      {message && <MessageBox message={message} onClose={() => setMessage(null)} />}
+    </div>
+  );
+};
 
-    const Checkpoint2 = ({ selectedPeriod, onComplete, onBack }) => {
-      const { db, userId } = useContext(FirebaseContext);
-      const [statements, setStatements] = useState(null);
-      const [userAnswers, setUserAnswers] = useState({}); // { statement_index: { isTrue: bool } }
-      const [score, setScore] = useState(0);
-      const [showResults, setShowResults] = useState(false);
-      const [loading, setLoading] = useState(true);
-      const [message, setMessage] = useState(null);
+const Checkpoint2 = ({ selectedPeriod, onComplete, onBack }) => {
+  const { db, userId } = useContext(FirebaseContext);
+  const [statements, setStatements] = useState(null);
+  const [userAnswers, setUserAnswers] = useState({}); // { statement_index: { isTrue: bool } }
+  const [score, setScore] = useState(0);
+  const [showResults, setShowResults] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState(null);
 
-      useEffect(() => {
-        const fetchStatements = async () => {
-          setLoading(true);
-          const content = historicalContent[selectedPeriod].summary + " " +
-                          historicalContent[selectedPeriod].political + " " +
-                          historicalContent[selectedPeriod].economic + " " +
-                          historicalContent[selectedPeriod].social_cultural_educational;
+  useEffect(() => {
+    const fetchStatements = async () => {
+      setLoading(true);
+      const content = historicalContent[selectedPeriod].summary + " " +
+        historicalContent[selectedPeriod].political + " " +
+        historicalContent[selectedPeriod].economic + " " +
+        historicalContent[selectedPeriod].social_cultural_educational;
 
-          const prompt = `Generate 3 historical statements about the "${selectedPeriod}" in Chinese history. Each statement MUST contain an intentional factual error (e.g., wrong year, historical person, organization name, policy name, or a false assertion). For each statement, indicate if it is "true" or "false" and provide the correct value if it's false. The content should be based on the following historical information:
+      const prompt = `Generate 3 historical statements about the "${selectedPeriod}" in Chinese history. Each statement MUST contain an intentional factual error (e.g., wrong year, historical person, organization name, policy name, or a false assertion). For each statement, indicate if it is "true" or "false" and provide the correct value if it's false. The content should be based on the following historical information:
           
           ${content}
           
@@ -772,200 +767,200 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
             ]
           }`;
 
-          const schema = {
-            type: "OBJECT",
-            properties: {
-              statements: {
-                type: "ARRAY",
-                items: {
-                  type: "OBJECT",
-                  properties: {
-                    statement: { type: "STRING" },
-                    is_true: { type: "BOOLEAN" },
-                    correct_value_if_false: { type: "STRING" }
-                  },
-                  required: ["statement", "is_true"]
-                }
-              }
-            },
-            required: ["statements"]
-          };
-
-          const generatedStatements = await callGeminiAPI(prompt, schema);
-          if (generatedStatements) {
-            setStatements(generatedStatements);
-            // Initialize user answers
-            const initialAnswers = {};
-            generatedStatements.statements.forEach((_, index) => {
-              initialAnswers[index] = { isTrue: null };
-            });
-            setUserAnswers(initialAnswers);
-          } else {
-            setMessage("Failed to load statements. Please ensure your Gemini API key is correctly set.");
+      const schema = {
+        type: "OBJECT",
+        properties: {
+          statements: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                statement: { type: "STRING" },
+                is_true: { type: "BOOLEAN" },
+                correct_value_if_false: { type: "STRING" }
+              },
+              required: ["statement", "is_true"]
+            }
           }
-          setLoading(false);
-        };
-
-        fetchStatements();
-      }, [selectedPeriod]);
-
-      const handleTrueFalseChange = (index, value) => {
-        setUserAnswers((prev) => ({
-          ...prev,
-          [index]: { isTrue: value === 'true' }
-        }));
+        },
+        required: ["statements"]
       };
 
-      const handleSubmit = async () => {
-        let currentScore = 0;
-        const allAnswers = {};
-
-        statements.statements.forEach((s, index) => {
-          const userAnswer = userAnswers[index];
-          allAnswers[index] = userAnswer;
-
-          // Check if user's T/F answer is correct
-          if (userAnswer.isTrue === s.is_true) {
-            currentScore++;
-          }
+      const generatedStatements = await callFireworksAPI(prompt, schema);
+      if (generatedStatements) {
+        setStatements(generatedStatements);
+        // Initialize user answers
+        const initialAnswers = {};
+        generatedStatements.statements.forEach((_, index) => {
+          initialAnswers[index] = { isTrue: null };
         });
-
-        setScore(currentScore);
-        setShowResults(true);
-
-        // Save to Firestore
-        if (db && userId) {
-          const docRef = doc(db, `artifacts/${typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'}/users/${userId}/history_revision_app`, selectedPeriod);
-          try {
-            await setDoc(docRef, {
-              checkpoint2: {
-                statements: statements,
-                userAnswers: allAnswers,
-                score: currentScore,
-                timestamp: new Date()
-              }
-            }, { merge: true });
-          } catch (e) {
-            console.error("Error saving Checkpoint 2 data to Firestore:", e);
-            setMessage("Failed to save progress. Please check console for details.");
-          }
-        }
-      };
-
-      if (loading) {
-        return <LoadingSpinner />;
+        setUserAnswers(initialAnswers);
+      } else {
+        setMessage("Failed to load statements. Please ensure your Fireworks API key is correctly set.");
       }
-
-      if (!statements) {
-        return (
-          <div className="p-6 bg-white rounded-lg shadow-xl max-w-3xl mx-auto my-8 text-center">
-            <p className="text-red-600 text-lg mb-4">Error: Could not load statements for this period. Please check your API key and try again.</p>
-            <BackButton onClick={onBack} />
-            {message && <MessageBox message={message} onClose={() => setMessage(null)} />}
-          </div>
-        );
-      }
-
-      return (
-        <div className="p-6 bg-white rounded-lg shadow-xl max-w-3xl mx-auto my-8">
-          <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Checkpoint 2: Identify the Error</h2>
-          <p className="text-center text-gray-600 mb-6">Period: <span className="font-semibold">{selectedPeriod}</span></p>
-
-          <div className="space-y-6 mb-8">
-            {statements.statements.map((s, index) => (
-              <div key={`stmt-${index}`} className="bg-gray-50 p-4 rounded-lg shadow-sm">
-                <p className="font-semibold text-gray-700 mb-2">Statement {index + 1}: {s.statement}</p>
-                <div className="flex items-center space-x-4">
-                  <label className="inline-flex items-center">
-                    <input
-                      type="radio"
-                      name={`stmt_${index}`}
-                      value="true"
-                      onChange={() => handleTrueFalseChange(index, 'true')}
-                      checked={userAnswers[index]?.isTrue === true}
-                      disabled={showResults}
-                      className="form-radio text-blue-600"
-                    />
-                    <span className="ml-2 text-gray-600">True</span>
-                  </label>
-                  <label className="inline-flex items-center">
-                    <input
-                      type="radio"
-                      name={`stmt_${index}`}
-                      value="false"
-                      onChange={() => handleTrueFalseChange(index, 'false')}
-                      checked={userAnswers[index]?.isTrue === false}
-                      disabled={showResults}
-                      className="form-radio text-blue-600"
-                    />
-                    <span className="ml-2 text-gray-600">False</span>
-                  </label>
-                </div>
-                {showResults && (
-                  <p className="text-sm mt-2">
-                    Your Answer: <span className={`${userAnswers[index]?.isTrue === s.is_true ? 'text-green-600' : 'text-red-600'} font-semibold`}>{userAnswers[index]?.isTrue === true ? 'True' : userAnswers[index]?.isTrue === false ? 'False' : 'N/A'}</span>.
-                    Correct Answer: <span className="text-green-600 font-semibold">{s.is_true ? 'True' : 'False'}</span>
-                    {!s.is_true && (
-                      <span className="ml-2 text-sm"> (Correct Value: <span className="text-green-600 font-semibold">{s.correct_value_if_false}</span>)</span>
-                    )}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {!showResults ? (
-            <div className="flex justify-between mt-8">
-              <BackButton onClick={onBack} />
-              <button
-                onClick={handleSubmit}
-                className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-              >
-                Submit Answers
-              </button>
-            </div>
-          ) : (
-            <div className="mt-8 text-center">
-              <p className="text-2xl font-bold text-gray-800 mb-4">Your Score: {score} / 3</p>
-              <div className="flex justify-between mt-4">
-                <BackButton onClick={onBack} />
-                <button
-                  onClick={() => onComplete(score)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-                >
-                  Next Checkpoint
-                </button>
-              </div>
-            </div>
-          )}
-          {message && <MessageBox message={message} onClose={() => setMessage(null)} />}
-        </div>
-      );
+      setLoading(false);
     };
 
-    const Checkpoint3 = ({ selectedPeriod, onComplete, onBack }) => {
-      const { db, userId } = useContext(FirebaseContext);
-      const aspects = ['Political', 'Economic', 'Social/Cultural/Educational', 'Diplomatic', 'Military']; // All aspects
-      const [randomAspect, setRandomAspect] = useState('');
-      const [userAnswer, setUserAnswer] = useState('');
-      const [feedback, setFeedback] = useState(null); // { score: '👍👍👍👍', comment: '...', correct_answer: '...' }
-      const [loading, setLoading] = useState(false);
-      const [message, setMessage] = useState(null);
-      const [outline, setOutline] = useState(null); // State for AI-generated outline
-      const [outlineLoading, setOutlineLoading] = useState(false); // State for outline loading
+    fetchStatements();
+  }, [selectedPeriod]);
 
-      useEffect(() => {
-        // Randomly select an aspect
-        const chosenAspect = aspects[Math.floor(Math.random() * aspects.length)];
-        setRandomAspect(chosenAspect);
-      }, [selectedPeriod]);
+  const handleTrueFalseChange = (index, value) => {
+    setUserAnswers((prev) => ({
+      ...prev,
+      [index]: { isTrue: value === 'true' }
+    }));
+  };
 
-      const handleGetOutline = async () => {
-        setOutlineLoading(true);
-        const periodContent = historicalContent[selectedPeriod];
-        const modernizationDef = modernizationCriteria[randomAspect.toLowerCase().replace(/\//g, '_')];
+  const handleSubmit = async () => {
+    let currentScore = 0;
+    const allAnswers = {};
 
-        const prompt = `Generate a concise outline or key points for an essay answering the question:
+    statements.statements.forEach((s, index) => {
+      const userAnswer = userAnswers[index];
+      allAnswers[index] = userAnswer;
+
+      // Check if user's T/F answer is correct
+      if (userAnswer.isTrue === s.is_true) {
+        currentScore++;
+      }
+    });
+
+    setScore(currentScore);
+    setShowResults(true);
+
+    // Save to Firestore
+    if (db && userId) {
+      const docRef = doc(db, `artifacts/${process.env.REACT_APP_FIREBASE_APP_ID || 'default-app-id'}/users/${userId}/history_revision_app`, selectedPeriod);
+      try {
+        await setDoc(docRef, {
+          checkpoint2: {
+            statements: statements,
+            userAnswers: allAnswers,
+            score: currentScore,
+            timestamp: new Date()
+          }
+        }, { merge: true });
+      } catch (e) {
+        console.error("Error saving Checkpoint 2 data to Firestore:", e);
+        setMessage("Failed to save progress. Please check console for details.");
+      }
+    }
+  };
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  if (!statements) {
+    return (
+      <div className="p-6 bg-white rounded-lg shadow-xl max-w-3xl mx-auto my-8 text-center">
+        <p className="text-red-600 text-lg mb-4">Error: Could not load statements for this period. Please check your API key and try again.</p>
+        <BackButton onClick={onBack} />
+        {message && <MessageBox message={message} onClose={() => setMessage(null)} />}
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 bg-white rounded-lg shadow-xl max-w-3xl mx-auto my-8">
+      <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Checkpoint 2: Identify the Error</h2>
+      <p className="text-center text-gray-600 mb-6">Period: <span className="font-semibold">{selectedPeriod}</span></p>
+
+      <div className="space-y-6 mb-8">
+        {statements.statements.map((s, index) => (
+          <div key={`stmt-${index}`} className="bg-gray-50 p-4 rounded-lg shadow-sm">
+            <p className="font-semibold text-gray-700 mb-2">Statement {index + 1}: {s.statement}</p>
+            <div className="flex items-center space-x-4">
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  name={`stmt_${index}`}
+                  value="true"
+                  onChange={() => handleTrueFalseChange(index, 'true')}
+                  checked={userAnswers[index]?.isTrue === true}
+                  disabled={showResults}
+                  className="form-radio text-blue-600"
+                />
+                <span className="ml-2 text-gray-600">True</span>
+              </label>
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  name={`stmt_${index}`}
+                  value="false"
+                  onChange={() => handleTrueFalseChange(index, 'false')}
+                  checked={userAnswers[index]?.isTrue === false}
+                  disabled={showResults}
+                  className="form-radio text-blue-600"
+                />
+                <span className="ml-2 text-gray-600">False</span>
+              </label>
+            </div>
+            {showResults && (
+              <p className="text-sm mt-2">
+                Your Answer: <span className={`${userAnswers[index]?.isTrue === s.is_true ? 'text-green-600' : 'text-red-600'} font-semibold`}>{userAnswers[index]?.isTrue === true ? 'True' : userAnswers[index]?.isTrue === false ? 'False' : 'N/A'}</span>.
+                Correct Answer: <span className="text-green-600 font-semibold">{s.is_true ? 'True' : 'False'}</span>
+                {!s.is_true && (
+                  <span className="ml-2 text-sm"> (Correct Value: <span className="text-green-600 font-semibold">{s.correct_value_if_false}</span>)</span>
+                )}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {!showResults ? (
+        <div className="flex justify-between mt-8">
+          <BackButton onClick={onBack} />
+          <button
+            onClick={handleSubmit}
+            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+          >
+            Submit Answers
+          </button>
+        </div>
+      ) : (
+        <div className="mt-8 text-center">
+          <p className="text-2xl font-bold text-gray-800 mb-4">Your Score: {score} / 3</p>
+          <div className="flex justify-between mt-4">
+            <BackButton onClick={onBack} />
+            <button
+              onClick={() => onComplete(score)}
+              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+            >
+              Next Checkpoint
+            </button>
+          </div>
+        </div>
+      )}
+      {message && <MessageBox message={message} onClose={() => setMessage(null)} />}
+    </div>
+  );
+};
+
+const Checkpoint3 = ({ selectedPeriod, onComplete, onBack }) => {
+  const { db, userId } = useContext(FirebaseContext);
+  const aspects = ['Political', 'Economic', 'Social/Cultural/Educational', 'Diplomatic', 'Military']; // All aspects
+  const [randomAspect, setRandomAspect] = useState('');
+  const [userAnswer, setUserAnswer] = useState('');
+  const [feedback, setFeedback] = useState(null); // { score: '👍👍👍👍', comment: '...', correct_answer: '...' }
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState(null);
+  const [outline, setOutline] = useState(null); // State for AI-generated outline
+  const [outlineLoading, setOutlineLoading] = useState(false); // State for outline loading
+
+  useEffect(() => {
+    // Randomly select an aspect
+    const chosenAspect = aspects[Math.floor(Math.random() * aspects.length)];
+    setRandomAspect(chosenAspect);
+  }, [selectedPeriod]);
+
+  const handleGetOutline = async () => {
+    setOutlineLoading(true);
+    const periodContent = historicalContent[selectedPeriod];
+    const modernizationDef = modernizationCriteria[randomAspect.toLowerCase().replace(/\//g, '_')];
+
+    const prompt = `Generate a concise outline or key points for an essay answering the question:
         "To what extent was ${selectedPeriod} effective in modernizing China in the ${randomAspect} aspect?"
         
         Focus on providing a structure with main arguments and relevant examples based on the following information:
@@ -979,26 +974,26 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
         
         Format the outline clearly with bullet points or numbered lists.`;
 
-        const generatedOutline = await callGeminiAPI(prompt);
-        if (generatedOutline) {
-          setOutline(generatedOutline);
-        } else {
-          setMessage("Failed to generate outline. Please ensure your Gemini API key is correctly set.");
-        }
-        setOutlineLoading(false);
-      };
+    const generatedOutline = await callFireworksAPI(prompt);
+    if (generatedOutline) {
+      setOutline(generatedOutline);
+    } else {
+      setMessage("Failed to generate outline. Please ensure your Fireworks API key is correctly set.");
+    }
+    setOutlineLoading(false);
+  };
 
-      const handleSubmit = async () => {
-        if (!userAnswer.trim()) {
-          setMessage("Please write your answer before submitting.");
-          return;
-        }
+  const handleSubmit = async () => {
+    if (!userAnswer.trim()) {
+      setMessage("Please write your answer before submitting.");
+      return;
+    }
 
-        setLoading(true);
-        const periodContent = historicalContent[selectedPeriod];
-        const modernizationDef = modernizationCriteria[randomAspect.toLowerCase().replace(/\//g, '_')];
+    setLoading(true);
+    const periodContent = historicalContent[selectedPeriod];
+    const modernizationDef = modernizationCriteria[randomAspect.toLowerCase().replace(/\//g, '_')];
 
-        const prompt = `You are a DSE History teacher. Assess the following student answer for the question:
+    const prompt = `You are a DSE History teacher. Assess the following student answer for the question:
         "To what extent was ${selectedPeriod} effective in modernizing China in the ${randomAspect} aspect?"
         
         Student's Answer: "${userAnswer}"
@@ -1027,143 +1022,143 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
           "correct_answer": "string"
         }`;
 
-        const schema = {
-          type: "OBJECT",
-          properties: {
-            score: { type: "STRING" },
-            comment: { type: "STRING" },
-            correct_answer: { type: "STRING" }
-          },
-          required: ["score", "comment", "correct_answer"]
-        };
-
-        const generatedFeedback = await callGeminiAPI(prompt, schema);
-        if (generatedFeedback) {
-          setFeedback(generatedFeedback);
-          // Save to Firestore
-          if (db && userId) {
-            const docRef = doc(db, `artifacts/${typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'}/users/${userId}/history_revision_app`, selectedPeriod);
-            try {
-              await setDoc(docRef, {
-                checkpoint3: {
-                  question: { period: selectedPeriod, aspect: randomAspect },
-                  userAnswer: userAnswer,
-                  feedback: generatedFeedback,
-                  timestamp: new Date()
-                }
-              }, { merge: true });
-            } catch (e) {
-                console.error("Error saving Checkpoint 3 data to Firestore:", e);
-                setMessage("Failed to save progress. Please check console for details.");
-            }
-          }
-        } else {
-          setMessage("Failed to get feedback. Please ensure your Gemini API key is correctly set.");
-        }
-        setLoading(false);
-      };
-
-      return (
-        <div className="p-6 bg-white rounded-lg shadow-xl max-w-4xl mx-auto my-8">
-          <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Checkpoint 3: Analytical Essay</h2>
-          <p className="text-center text-gray-600 mb-6">Period: <span className="font-semibold">{selectedPeriod}</span></p>
-
-          <div className="bg-blue-50 p-4 rounded-lg shadow-sm mb-6">
-            <p className="font-semibold text-blue-800 text-lg mb-2">Question:</p>
-            <p className="text-blue-700">
-              To what extent was <span className="font-bold">{selectedPeriod}</span> effective in modernizing China in the <span className="font-bold">{randomAspect} aspect</span>?
-            </p>
-          </div>
-
-          <div className="mb-4">
-            <button
-              onClick={handleGetOutline}
-              disabled={outlineLoading || feedback}
-              className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {outlineLoading ? 'Generating Outline...' : '✨ Get Outline Help'}
-            </button>
-            {outline && !feedback && (
-              <div className="mt-4 p-4 bg-purple-100 border-l-4 border-purple-500 text-purple-800 rounded-md whitespace-pre-wrap">
-                <h4 className="font-semibold mb-2">Essay Outline Suggestion:</h4>
-                {outline}
-              </div>
-            )}
-          </div>
-
-          <textarea
-            className="w-full p-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-64 resize-y text-gray-800"
-            placeholder="Write your answer here..."
-            value={userAnswer}
-            onChange={(e) => setUserAnswer(e.target.value)}
-            disabled={loading || feedback}
-          ></textarea>
-
-          {!feedback ? (
-            <div className="flex justify-between mt-8">
-              <BackButton onClick={onBack} />
-              <button
-                onClick={handleSubmit}
-                disabled={loading}
-                className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Submitting...' : 'Submit Answer'}
-              </button>
-            </div>
-          ) : (
-            <div className="mt-8">
-              <h3 className="text-2xl font-bold text-gray-800 mb-4">Your Feedback:</h3>
-              <div className="bg-gray-50 p-4 rounded-lg shadow-sm mb-4">
-                <p className="text-lg font-semibold text-gray-700 mb-2">Score: <span className="text-yellow-500 text-2xl">{feedback.score} out of 4 thumb-up marks</span></p>
-                <p className="text-gray-700 whitespace-pre-wrap">{feedback.comment}</p>
-              </div>
-              <div className="bg-blue-50 p-4 rounded-lg shadow-sm">
-                <h4 className="text-lg font-semibold text-blue-800 mb-2">Correct Answer:</h4>
-                <p className="text-blue-700 whitespace-pre-wrap">{feedback.correct_answer}</p>
-              </div>
-              <div className="flex justify-between mt-8">
-                <BackButton onClick={onBack} />
-                <button
-                  onClick={() => onComplete()}
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-                >
-                  Finish Challenge
-                </button>
-              </div>
-            </div>
-          )}
-          {message && <MessageBox message={message} onClose={() => setMessage(null)} />}
-        </div>
-      );
+    const schema = {
+      type: "OBJECT",
+      properties: {
+        score: { type: "STRING" },
+        comment: { type: "STRING" },
+        correct_answer: { type: "STRING" }
+      },
+      required: ["score", "comment", "correct_answer"]
     };
 
+    const generatedFeedback = await callFireworksAPI(prompt, schema);
+    if (generatedFeedback) {
+      setFeedback(generatedFeedback);
+      // Save to Firestore
+      if (db && userId) {
+        const docRef = doc(db, `artifacts/${process.env.REACT_APP_FIREBASE_APP_ID || 'default-app-id'}/users/${userId}/history_revision_app`, selectedPeriod);
+        try {
+          await setDoc(docRef, {
+            checkpoint3: {
+              question: { period: selectedPeriod, aspect: randomAspect },
+              userAnswer: userAnswer,
+              feedback: generatedFeedback,
+              timestamp: new Date()
+            }
+          }, { merge: true });
+        } catch (e) {
+          console.error("Error saving Checkpoint 3 data to Firestore:", e);
+          setMessage("Failed to save progress. Please check console for details.");
+        }
+      }
+    } else {
+      setMessage("Failed to get feedback. Please ensure your Fireworks API key is correctly set.");
+    }
+    setLoading(false);
+  };
 
-    const App = () => {
-      const { db, userId, isAuthReady } = useContext(FirebaseContext);
-      const [currentPage, setCurrentPage] = useState('home'); // 'home', 'checkpoint1', 'checkpoint2', 'checkpoint3', 'final_feedback'
-      const [selectedPeriod, setSelectedPeriod] = useState(null);
-      const [message, setMessage] = useState(null);
-      const [overallFeedback, setOverallFeedback] = useState(null);
-      const [loadingFinalFeedback, setLoadingFinalFeedback] = useState(false);
-      const [exportSummaryContent, setExportSummaryContent] = useState(null);
+  return (
+    <div className="p-6 bg-white rounded-lg shadow-xl max-w-4xl mx-auto my-8">
+      <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Checkpoint 3: Analytical Essay</h2>
+      <p className="text-center text-gray-600 mb-6">Period: <span className="font-semibold">{selectedPeriod}</span></p>
 
-      const handleSelectPeriod = (period) => {
-        setSelectedPeriod(period);
-        setCurrentPage('checkpoint1');
-      };
+      <div className="bg-blue-50 p-4 rounded-lg shadow-sm mb-6">
+        <p className="font-semibold text-blue-800 text-lg mb-2">Question:</p>
+        <p className="text-blue-700">
+          To what extent was <span className="font-bold">{selectedPeriod}</span> effective in modernizing China in the <span className="font-bold">{randomAspect} aspect</span>?
+        </p>
+      </div>
 
-      const handleCheckpoint1Complete = () => {
-        setCurrentPage('checkpoint2');
-      };
+      <div className="mb-4">
+        <button
+          onClick={handleGetOutline}
+          disabled={outlineLoading || feedback}
+          className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {outlineLoading ? 'Generating Outline...' : '✨ Get Outline Help'}
+        </button>
+        {outline && !feedback && (
+          <div className="mt-4 p-4 bg-purple-100 border-l-4 border-purple-500 text-purple-800 rounded-md whitespace-pre-wrap">
+            <h4 className="font-semibold mb-2">Essay Outline Suggestion:</h4>
+            {outline}
+          </div>
+        )}
+      </div>
 
-      const handleCheckpoint2Complete = () => {
-        setCurrentPage('checkpoint3');
-      };
+      <textarea
+        className="w-full p-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-64 resize-y text-gray-800"
+        placeholder="Write your answer here..."
+        value={userAnswer}
+        onChange={(e) => setUserAnswer(e.target.value)}
+        disabled={loading || feedback}
+      ></textarea>
 
-      // After Checkpoint 3, go directly to final feedback
-      const handleCheckpoint3Complete = async () => {
-        setLoadingFinalFeedback(true);
-        const prompt = `Based on the student's performance across Checkpoints 1, 2, and 3 for the historical period "${selectedPeriod}", provide an overall comment. Highlight their strengths (e.g., good factual recall, strong analytical skills) and areas for improvement (e.g., need more detailed examples, clearer topic sentences). Include some encouraging emojis.
+      {!feedback ? (
+        <div className="flex justify-between mt-8">
+          <BackButton onClick={onBack} />
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Submitting...' : 'Submit Answer'}
+          </button>
+        </div>
+      ) : (
+        <div className="mt-8">
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">Your Feedback:</h3>
+          <div className="bg-gray-50 p-4 rounded-lg shadow-sm mb-4">
+            <p className="text-lg font-semibold text-gray-700 mb-2">Score: <span className="text-yellow-500 text-2xl">{feedback.score} out of 4 thumb-up marks</span></p>
+            <p className="text-gray-700 whitespace-pre-wrap">{feedback.comment}</p>
+          </div>
+          <div className="bg-blue-50 p-4 rounded-lg shadow-sm">
+            <h4 className="text-lg font-semibold text-blue-800 mb-2">Correct Answer:</h4>
+            <p className="text-blue-700 whitespace-pre-wrap">{feedback.correct_answer}</p>
+          </div>
+          <div className="flex justify-between mt-8">
+            <BackButton onClick={onBack} />
+            <button
+              onClick={() => onComplete()}
+              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+            >
+              Finish Challenge
+            </button>
+          </div>
+        </div>
+      )}
+      {message && <MessageBox message={message} onClose={() => setMessage(null)} />}
+    </div>
+  );
+};
+
+
+const App = () => {
+  const { db, userId, isAuthReady } = useContext(FirebaseContext);
+  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'checkpoint1', 'checkpoint2', 'checkpoint3', 'final_feedback'
+  const [selectedPeriod, setSelectedPeriod] = useState(null);
+  const [message, setMessage] = useState(null);
+  const [overallFeedback, setOverallFeedback] = useState(null);
+  const [loadingFinalFeedback, setLoadingFinalFeedback] = useState(false);
+  const [exportSummaryContent, setExportSummaryContent] = useState(null);
+
+  const handleSelectPeriod = (period) => {
+    setSelectedPeriod(period);
+    setCurrentPage('checkpoint1');
+  };
+
+  const handleCheckpoint1Complete = () => {
+    setCurrentPage('checkpoint2');
+  };
+
+  const handleCheckpoint2Complete = () => {
+    setCurrentPage('checkpoint3');
+  };
+
+  // After Checkpoint 3, go directly to final feedback
+  const handleCheckpoint3Complete = async () => {
+    setLoadingFinalFeedback(true);
+    const prompt = `Based on the student's performance across Checkpoints 1, 2, and 3 for the historical period "${selectedPeriod}", provide an overall comment. Highlight their strengths (e.g., good factual recall, strong analytical skills) and areas for improvement (e.g., need more detailed examples, clearer topic sentences). Include some encouraging emojis.
         
         Assume the student has completed all checkpoints for this period.
         
@@ -1173,229 +1168,229 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
           "emojis": "string"
         }`;
 
-        const schema = {
-          type: "OBJECT",
-          properties: {
-            comment: { type: "STRING" },
-            emojis: { type: "STRING" }
-          },
-          required: ["comment", "emojis"]
-        };
-
-        const feedback = await callGeminiAPI(prompt, schema);
-        if (feedback) {
-          setOverallFeedback(feedback);
-          setCurrentPage('final_feedback');
-        } else {
-          setMessage("Failed to generate overall feedback. Please ensure your Gemini API key is correctly set.");
-          setCurrentPage('home'); // Fallback to home
-        }
-        setLoadingFinalFeedback(false);
-      };
-
-
-      const handleBack = () => {
-        if (currentPage === 'checkpoint1') {
-          setCurrentPage('home');
-          setSelectedPeriod(null);
-        } else if (currentPage === 'checkpoint2') {
-          setCurrentPage('checkpoint1');
-        } else if (currentPage === 'checkpoint3') {
-          setCurrentPage('checkpoint2');
-        } else if (currentPage === 'final_feedback') {
-          setCurrentPage('home'); // From final feedback, go straight to home
-          setSelectedPeriod(null);
-          setOverallFeedback(null);
-          setExportSummaryContent(null); // Clear export content
-        }
-      };
-
-      // New navigation functions for specific checkpoints
-      const goToCheckpoint = (cpNum) => {
-        if (selectedPeriod) {
-          setCurrentPage(`checkpoint${cpNum}`);
-        } else {
-          setMessage("Please select a historical period first from the home page.");
-        }
-      };
-
-
-      const handleExportSummaryAsText = async () => {
-        if (!db || !userId || !selectedPeriod) {
-          setMessage("Cannot export: User data or selected period is missing.");
-          return;
-        }
-
-        try {
-          // In this React app, we rely on the state for current session data.
-          // For Firebase data, you'd fetch it here.
-          let summaryText = `--- DSE History Revision Summary for ${selectedPeriod || 'Selected Period'} ---\n\n`;
-
-          // Checkpoint 1 Data (from state)
-          const cp1Data = window.appState.checkpoint1;
-          if (cp1Data) {
-            summaryText += `=== Checkpoint 1: Hard Knowledge ===\n`;
-            cp1Data.questions.mc_questions.forEach((q, index) => {
-              const userAnswer = cp1Data.userAnswers[`mc_${index}`] || 'N/A';
-              const isCorrect = userAnswer.toUpperCase().trim() === q.answer.toUpperCase().trim();
-              summaryText += `Question ${index + 1} (MC): ${q.question}\n`;
-              summaryText += `  Options: A) ${q.options.A} B) ${q.options.B} C) ${q.options.C} D) ${q.options.D}\n`;
-              summaryText += `  Student Answer: ${userAnswer}\n`;
-              summaryText += `  Correctness: ${isCorrect ? "Correct" : "Incorrect"}\n`;
-              summaryText += `  Correct Answer: ${q.answer}\n\n`;
-            });
-            cp1Data.questions.fill_in_blanks.forEach((q, index) => {
-              const userAnswer = cp1Data.userAnswers[`fib_${index}`] || 'N/A';
-              const isCorrect = userAnswer.toLowerCase().trim() === q.answer.toLowerCase().trim();
-              summaryText += `Question ${index + 1} (Fill-in-Blank): ${q.question}\n`;
-              summaryText += `  Student Answer: ${userAnswer}\n`;
-              summaryText += `  Correctness: ${isCorrect ? "Correct" : "Incorrect"}\n`;
-              summaryText += `  Correct Answer: ${q.answer}\n\n`;
-            });
-            summaryText += `Checkpoint 1 Score: ${cp1Data.score}/5\n`;
-            summaryText += `---------------------------------------\n\n`;
-          }
-
-          // Checkpoint 2 Data (from state)
-          const cp2Data = window.appState.checkpoint2;
-          if (cp2Data) {
-            summaryText += `=== Checkpoint 2: Identify the Error ===\n`;
-            cp2Data.statements.statements.forEach((s, index) => {
-              const userAnswerBool = cp2Data.userAnswers[index]?.isTrue;
-              const userAnswerText = userAnswerBool === true ? 'True' : userAnswerBool === false ? 'False' : 'N/A';
-              const isCorrect = userAnswerBool === s.is_true;
-              const correctAnswerDetails = s.is_true ? 'True' : `False (Correct Value: ${s.correct_value_if_false})`;
-              summaryText += `Statement ${index + 1}: ${s.statement}\n`;
-              summaryText += `  Student Answer (T/F): ${userAnswerText}\n`;
-              summaryText += `  Correctness: ${isCorrect ? "Correct" : "Incorrect"}\n`;
-              summaryText += `  Correct Answer: ${correctAnswerDetails}\n\n`;
-            });
-            summaryText += `Checkpoint 2 Score: ${cp2Data.score}/3\n`;
-            summaryText += `---------------------------------------\n\n`;
-          }
-
-          // Checkpoint 3 Data (from state)
-          const cp3Data = window.appState.checkpoint3;
-          if (cp3Data) {
-            summaryText += `=== Checkpoint 3: Analytical Essay ===\n`;
-            summaryText += `Question: To what extent was ${cp3Data.question.period} effective in modernizing China in the ${cp3Data.question.aspect} aspect?\n`;
-            summaryText += `Student's Answer:\n${cp3Data.userAnswer}\n\n`;
-            summaryText += `Feedback: ${cp3Data.feedback.score} out of 4 thumb-up marks.\n`;
-            summaryText += `Comment: ${cp3Data.feedback.comment}\n\n`;
-            summaryText += `Correct Answer:\n${cp3Data.feedback.correct_answer}\n`;
-            summaryText += `---------------------------------------\n\n`;
-          }
-
-          // Overall Feedback (from state)
-          const overallFeedbackData = overallFeedback; // This comes from React state directly
-          if (overallFeedbackData) {
-            summaryText += `=== Overall Feedback ===\n`;
-            summaryText += `Comment: ${overallFeedbackData.comment}\n`;
-            summaryText += `Emojis: ${overallFeedbackData.emojis}\n`;
-            summaryText += `---------------------------------------\n\n`;
-          }
-
-          setExportSummaryContent(summaryText);
-          setMessage("Summary generated. You can copy the text below and share it with your teacher.", summaryText); // Pass content to MessageBox
-        } catch (e) {
-          console.error("Error generating text summary:", e);
-          setMessage("Failed to export summary. Please check console for details.");
-        }
-      };
-
-
-      if (!isAuthReady) {
-        return (
-          <div className="min-h-screen flex items-center justify-center bg-gray-100">
-            <LoadingSpinner />
-          </div>
-        );
-      }
-
-      return (
-        <div className="min-h-screen bg-gray-100 font-inter text-gray-900 p-4 sm:p-8">
-          <h1 className="text-4xl font-extrabold text-center text-blue-700 mb-8 drop-shadow-lg">
-            DSE History Revision App
-          </h1>
-          {userId && (
-            <p className="text-center text-sm text-gray-500 mb-4">
-              User ID: <span className="font-mono text-xs">{userId}</span>
-            </p>
-          )}
-
-          {currentPage === 'home' && <HomePage onSelectPeriod={handleSelectPeriod} />}
-          {currentPage === 'checkpoint1' && selectedPeriod && (
-            <Checkpoint1
-              selectedPeriod={selectedPeriod}
-              onComplete={handleCheckpoint1Complete}
-              onBack={handleBack}
-            />
-          )}
-          {currentPage === 'checkpoint2' && selectedPeriod && (
-            <Checkpoint2
-              selectedPeriod={selectedPeriod}
-              onComplete={handleCheckpoint2Complete}
-              onBack={handleBack}
-            />
-          )}
-          {currentPage === 'checkpoint3' && selectedPeriod && (
-            <Checkpoint3
-              selectedPeriod={selectedPeriod}
-              onComplete={handleCheckpoint3Complete}
-              onBack={handleBack}
-            />
-          )}
-          {/* Checkpoint 4 is now a separate app, so it's removed from this flow */}
-          {currentPage === 'final_feedback' && overallFeedback && (
-            <div className="p-6 bg-white rounded-lg shadow-xl max-w-3xl mx-auto my-8 text-center">
-              <h2 className="text-3xl font-bold text-gray-800 mb-4">Challenge Completed! 🎉</h2>
-              <p className="text-xl text-gray-700 mb-4">{overallFeedback.emojis}</p>
-              <p className="text-lg text-gray-700 whitespace-pre-wrap mb-6">{overallFeedback.comment}</p>
-              <div className="flex flex-wrap justify-center gap-4 mt-4">
-                <button
-                  onClick={handleExportSummaryAsText}
-                  className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-                >
-                  Export Summary (Text)
-                </button>
-                <button
-                  onClick={() => goToCheckpoint(1)}
-                  className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-                >
-                  Return to Checkpoint 1
-                </button>
-                <button
-                  onClick={() => goToCheckpoint(2)}
-                  className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-                >
-                  Return to Checkpoint 2
-                </button>
-                <button
-                  onClick={() => goToCheckpoint(3)}
-                  className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-                >
-                  Return to Checkpoint 3
-                </button>
-                <button
-                  onClick={() => handleBack()} // Go back to home
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-                >
-                  Return to Home
-                </button>
-              </div>
-            </div>
-          )}
-          {loadingFinalFeedback && <LoadingSpinner />}
-          {message && <MessageBox message={message} onClose={() => setMessage(null)} content={exportSummaryContent} />}
-        </div>
-      );
+    const schema = {
+      type: "OBJECT",
+      properties: {
+        comment: { type: "STRING" },
+        emojis: { type: "STRING" }
+      },
+      required: ["comment", "emojis"]
     };
 
-    // Main component wrapped with FirebaseProvider
-    export default function AppWrapper() {
-      return (
-        <FirebaseProvider>
-          <App />
-        </FirebaseProvider>
-      );
+    const feedback = await callFireworksAPI(prompt, schema);
+    if (feedback) {
+      setOverallFeedback(feedback);
+      setCurrentPage('final_feedback');
+    } else {
+      setMessage("Failed to generate overall feedback. Please ensure your Fireworks API key is correctly set.");
+      setCurrentPage('home'); // Fallback to home
     }
+    setLoadingFinalFeedback(false);
+  };
+
+
+  const handleBack = () => {
+    if (currentPage === 'checkpoint1') {
+      setCurrentPage('home');
+      setSelectedPeriod(null);
+    } else if (currentPage === 'checkpoint2') {
+      setCurrentPage('checkpoint1');
+    } else if (currentPage === 'checkpoint3') {
+      setCurrentPage('checkpoint2');
+    } else if (currentPage === 'final_feedback') {
+      setCurrentPage('home'); // From final feedback, go straight to home
+      setSelectedPeriod(null);
+      setOverallFeedback(null);
+      setExportSummaryContent(null); // Clear export content
+    }
+  };
+
+  // New navigation functions for specific checkpoints
+  const goToCheckpoint = (cpNum) => {
+    if (selectedPeriod) {
+      setCurrentPage(`checkpoint${cpNum}`);
+    } else {
+      setMessage("Please select a historical period first from the home page.");
+    }
+  };
+
+
+  const handleExportSummaryAsText = async () => {
+    if (!db || !userId || !selectedPeriod) {
+      setMessage("Cannot export: User data or selected period is missing.");
+      return;
+    }
+
+    try {
+      // In this React app, we rely on the state for current session data.
+      // For Firebase data, you'd fetch it here.
+      let summaryText = `--- DSE History Revision Summary for ${selectedPeriod || 'Selected Period'} ---\n\n`;
+
+      // Checkpoint 1 Data (from state)
+      const cp1Data = window.appState.checkpoint1;
+      if (cp1Data) {
+        summaryText += `=== Checkpoint 1: Hard Knowledge ===\n`;
+        cp1Data.questions.mc_questions.forEach((q, index) => {
+          const userAnswer = cp1Data.userAnswers[`mc_${index}`] || 'N/A';
+          const isCorrect = userAnswer.toUpperCase().trim() === q.answer.toUpperCase().trim();
+          summaryText += `Question ${index + 1} (MC): ${q.question}\n`;
+          summaryText += `  Options: A) ${q.options.A} B) ${q.options.B} C) ${q.options.C} D) ${q.options.D}\n`;
+          summaryText += `  Student Answer: ${userAnswer}\n`;
+          summaryText += `  Correctness: ${isCorrect ? "Correct" : "Incorrect"}\n`;
+          summaryText += `  Correct Answer: ${q.answer}\n\n`;
+        });
+        cp1Data.questions.fill_in_blanks.forEach((q, index) => {
+          const userAnswer = cp1Data.userAnswers[`fib_${index}`] || 'N/A';
+          const isCorrect = userAnswer.toLowerCase().trim() === q.answer.toLowerCase().trim();
+          summaryText += `Question ${index + 1} (Fill-in-Blank): ${q.question}\n`;
+          summaryText += `  Student Answer: ${userAnswer}\n`;
+          summaryText += `  Correctness: ${isCorrect ? "Correct" : "Incorrect"}\n`;
+          summaryText += `  Correct Answer: ${q.answer}\n\n`;
+        });
+        summaryText += `Checkpoint 1 Score: ${cp1Data.score}/5\n`;
+        summaryText += `---------------------------------------\n\n`;
+      }
+
+      // Checkpoint 2 Data (from state)
+      const cp2Data = window.appState.checkpoint2;
+      if (cp2Data) {
+        summaryText += `=== Checkpoint 2: Identify the Error ===\n`;
+        cp2Data.statements.statements.forEach((s, index) => {
+          const userAnswerBool = cp2Data.userAnswers[index]?.isTrue;
+          const userAnswerText = userAnswerBool === true ? 'True' : userAnswerBool === false ? 'False' : 'N/A';
+          const isCorrect = userAnswerBool === s.is_true;
+          const correctAnswerDetails = s.is_true ? 'True' : `False (Correct Value: ${s.correct_value_if_false})`;
+          summaryText += `Statement ${index + 1}: ${s.statement}\n`;
+          summaryText += `  Student Answer (T/F): ${userAnswerText}\n`;
+          summaryText += `  Correctness: ${isCorrect ? "Correct" : "Incorrect"}\n`;
+          summaryText += `  Correct Answer: ${correctAnswerDetails}\n\n`;
+        });
+        summaryText += `Checkpoint 2 Score: ${cp2Data.score}/3\n`;
+        summaryText += `---------------------------------------\n\n`;
+      }
+
+      // Checkpoint 3 Data (from state)
+      const cp3Data = window.appState.checkpoint3;
+      if (cp3Data) {
+        summaryText += `=== Checkpoint 3: Analytical Essay ===\n`;
+        summaryText += `Question: To what extent was ${cp3Data.question.period} effective in modernizing China in the ${cp3Data.question.aspect} aspect?\n`;
+        summaryText += `Student's Answer:\n${cp3Data.userAnswer}\n\n`;
+        summaryText += `Feedback: ${cp3Data.feedback.score} out of 4 thumb-up marks.\n`;
+        summaryText += `Comment: ${cp3Data.feedback.comment}\n\n`;
+        summaryText += `Correct Answer:\n${cp3Data.feedback.correct_answer}\n`;
+        summaryText += `---------------------------------------\n\n`;
+      }
+
+      // Overall Feedback (from state)
+      const overallFeedbackData = overallFeedback; // This comes from React state directly
+      if (overallFeedbackData) {
+        summaryText += `=== Overall Feedback ===\n`;
+        summaryText += `Comment: ${overallFeedbackData.comment}\n`;
+        summaryText += `Emojis: ${overallFeedbackData.emojis}\n`;
+        summaryText += `---------------------------------------\n\n`;
+      }
+
+      setExportSummaryContent(summaryText);
+      setMessage("Summary generated. You can copy the text below and share it with your teacher.", summaryText); // Pass content to MessageBox
+    } catch (e) {
+      console.error("Error generating text summary:", e);
+      setMessage("Failed to export summary. Please check console for details.");
+    }
+  };
+
+
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 font-inter text-gray-900 p-4 sm:p-8">
+      <h1 className="text-4xl font-extrabold text-center text-blue-700 mb-8 drop-shadow-lg">
+        DSE History Revision App
+      </h1>
+      {userId && (
+        <p className="text-center text-sm text-gray-500 mb-4">
+          User ID: <span className="font-mono text-xs">{userId}</span>
+        </p>
+      )}
+
+      {currentPage === 'home' && <HomePage onSelectPeriod={handleSelectPeriod} />}
+      {currentPage === 'checkpoint1' && selectedPeriod && (
+        <Checkpoint1
+          selectedPeriod={selectedPeriod}
+          onComplete={handleCheckpoint1Complete}
+          onBack={handleBack}
+        />
+      )}
+      {currentPage === 'checkpoint2' && selectedPeriod && (
+        <Checkpoint2
+          selectedPeriod={selectedPeriod}
+          onComplete={handleCheckpoint2Complete}
+          onBack={handleBack}
+        />
+      )}
+      {currentPage === 'checkpoint3' && selectedPeriod && (
+        <Checkpoint3
+          selectedPeriod={selectedPeriod}
+          onComplete={handleCheckpoint3Complete}
+          onBack={handleBack}
+        />
+      )}
+      {/* Checkpoint 4 is now a separate app, so it's removed from this flow */}
+      {currentPage === 'final_feedback' && overallFeedback && (
+        <div className="p-6 bg-white rounded-lg shadow-xl max-w-3xl mx-auto my-8 text-center">
+          <h2 className="text-3xl font-bold text-gray-800 mb-4">Challenge Completed! 🎉</h2>
+          <p className="text-xl text-gray-700 mb-4">{overallFeedback.emojis}</p>
+          <p className="text-lg text-gray-700 whitespace-pre-wrap mb-6">{overallFeedback.comment}</p>
+          <div className="flex flex-wrap justify-center gap-4 mt-4">
+            <button
+              onClick={handleExportSummaryAsText}
+              className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+            >
+              Export Summary (Text)
+            </button>
+            <button
+              onClick={() => goToCheckpoint(1)}
+              className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+            >
+              Return to Checkpoint 1
+            </button>
+            <button
+              onClick={() => goToCheckpoint(2)}
+              className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+            >
+              Return to Checkpoint 2
+            </button>
+            <button
+              onClick={() => goToCheckpoint(3)}
+              className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+            >
+              Return to Checkpoint 3
+            </button>
+            <button
+              onClick={() => handleBack()} // Go back to home
+              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+            >
+              Return to Home
+            </button>
+          </div>
+        </div>
+      )}
+      {loadingFinalFeedback && <LoadingSpinner />}
+      {message && <MessageBox message={message} onClose={() => setMessage(null)} content={exportSummaryContent} />}
+    </div>
+  );
+};
+
+// Main component wrapped with FirebaseProvider
+export default function AppWrapper() {
+  return (
+    <FirebaseProvider>
+      <App />
+    </FirebaseProvider>
+  );
+}
