@@ -333,11 +333,12 @@ const callFireworksAPI = async (prompt, schema = null) => {
     payload.response_format = { type: "json_object" };
   }
 
-  const apiKey = process.env.REACT_APP_FIREWORKS_API_KEY;
+  // IMPORTANT: Replace "YOUR_FIREWORKS_API_KEY_HERE" with your actual Fireworks API key.
+  const apiKey = "YOUR_FIREWORKS_API_KEY_HERE";
   const apiUrl = "https://api.fireworks.ai/inference/v1/chat/completions";
 
-  if (!apiKey) {
-    console.error("Fireworks API Key is missing or not set. Please check your environment variables.");
+  if (!apiKey || apiKey === "YOUR_FIREWORKS_API_KEY_HERE") {
+    console.error("Fireworks API Key is missing or not set. Please replace 'YOUR_FIREWORKS_API_KEY_HERE' in the code.");
     return null;
   }
 
@@ -372,61 +373,55 @@ const callFireworksAPI = async (prompt, schema = null) => {
 // --- Components ---
 
 const BackButton = ({ onClick }) => (
-  <button
-    onClick={onClick}
-    className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-full shadow-md transition duration-300 ease-in-out"
-  >
+  <button onClick={onClick} className="btn btn-outline">
     Back
   </button>
 );
 
 const LoadingSpinner = () => (
-  <div className="flex justify-center items-center py-8">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-    <p className="ml-4 text-lg text-gray-700">Loading...</p>
+  <div className="loading">
+    <div className="loading-spinner"></div>
+    <p className="ml-4">Loading...</p>
   </div>
 );
 
 const MessageBox = ({ message, onClose, content = null }) => (
-  <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
-    <div className="bg-white p-6 rounded-lg shadow-xl max-w-lg w-full text-center">
+  <div className="modal">
+    <div className="card">
       <p className="text-lg font-semibold mb-4">{message}</p>
       {content && (
         <textarea
           readOnly
-          className="w-full h-64 p-2 border border-gray-300 rounded-md mb-4 resize-y font-mono text-sm"
+          className="form-input"
           value={content}
         ></textarea>
       )}
-      <button
-        onClick={onClose}
-        className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-full shadow-md transition duration-300 ease-in-out"
-      >
+      <button onClick={onClose} className="btn btn-primary">
         OK
       </button>
     </div>
   </div>
 );
 
-
 const HomePage = ({ onSelectPeriod }) => {
   const historicalPeriods = Object.keys(historicalContent);
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow-xl max-w-3xl mx-auto my-8">
-      <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Choose Your Challenge!</h2>
-      <p className="text-center text-gray-600 mb-8">Select a historical period to begin your revision game.</p>
-      {/* No image included */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {historicalPeriods.map((period) => (
-          <button
-            key={period}
-            onClick={() => onSelectPeriod(period)}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-          >
-            {period}
-          </button>
-        ))}
+    <div className="container fade-in">
+      <div className="card">
+        <h2 className="text-center">Choose Your Challenge!</h2>
+        <p className="text-center text-light">Select a historical period to begin your revision game.</p>
+        <div className="grid">
+          {historicalPeriods.map((period) => (
+            <button
+              key={period}
+              onClick={() => onSelectPeriod(period)}
+              className="btn btn-primary"
+            >
+              {period}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -440,8 +435,8 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
   const [showResults, setShowResults] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
-  const [hints, setHints] = useState({}); // State to store hints for each question
-  const [hintLoading, setHintLoading] = useState({}); // State to track hint loading
+  const [hints, setHints] = useState({});
+  const [hintLoading, setHintLoading] = useState({});
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -561,7 +556,6 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
     setHintLoading(prev => ({ ...prev, [`${questionType}_${index}`]: false }));
   };
 
-
   const handleSubmit = async () => {
     let currentScore = 0;
     const allAnswers = {};
@@ -606,127 +600,87 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
     }
   };
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
-
-  if (!questions) {
-    return (
-      <div className="p-6 bg-white rounded-lg shadow-xl max-w-3xl mx-auto my-8 text-center">
-        <p className="text-red-600 text-lg mb-4">Error: Could not load questions for this period. Please check your API key and try again.</p>
-        <BackButton onClick={onBack} />
-        {message && <MessageBox message={message} onClose={() => setMessage(null)} />}
-      </div>
-    );
-  }
-
   return (
-    <div className="p-6 bg-white rounded-lg shadow-xl max-w-3xl mx-auto my-8">
-      <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Checkpoint 1: Hard Knowledge</h2>
-      <p className="text-center text-gray-600 mb-6">Period: <span className="font-semibold">{selectedPeriod}</span></p>
+    <div className="container fade-in">
+      <div className="card">
+        <h2>Checkpoint 1: Knowledge Check</h2>
+        <p className="text-light">Test your understanding of {selectedPeriod}</p>
 
-      <div className="space-y-6 mb-8">
-        {questions.mc_questions.map((q, qIndex) => (
-          <div key={`mc-${qIndex}`} className="bg-gray-50 p-4 rounded-lg shadow-sm">
-            <p className="font-semibold text-gray-700 mb-2">MC Question {qIndex + 1}: {q.question}</p>
-            {Object.entries(q.options).map(([key, value]) => (
-              <div key={key} className="mb-1">
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    name={`mc_${qIndex}`}
-                    value={key}
-                    onChange={handleInputChange}
-                    checked={userAnswers[`mc_${qIndex}`] === key}
-                    disabled={showResults}
-                    className="form-radio text-blue-600"
-                  />
-                  <span className="ml-2 text-gray-600">{key}. {value}</span>
-                </label>
-              </div>
-            ))}
-            {!showResults && (
-              <button
-                onClick={() => handleGetHint('mc', qIndex, q.question, q.options)}
-                disabled={hintLoading[`mc_${qIndex}`]}
-                className="ml-4 bg-yellow-400 hover:bg-yellow-500 text-white text-sm font-bold py-1 px-3 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {hintLoading[`mc_${qIndex}`] ? 'Loading Hint...' : '✨ Get Hint'}
-              </button>
-            )}
-            {hints[`mc_${qIndex}`] && !showResults && (
-              <p className="text-sm mt-2 p-2 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-md">
-                Hint: {hints[`mc_${qIndex}`]}
-              </p>
-            )}
-            {showResults && (
-              <p className="text-sm mt-2">
-                Your Answer: <span className={`${userAnswers[`mc_${qIndex}`].toUpperCase().trim() === q.answer.toUpperCase().trim() ? 'text-green-600' : 'text-red-600'} font-semibold`}>{userAnswers[`mc_${qIndex}`] || 'N/A'}</span>.
-                Correct Answer: <span className="text-green-600 font-semibold">{q.answer}</span>
-              </p>
-            )}
-          </div>
-        ))}
-
-        {questions.fill_in_blanks.map((q, qIndex) => (
-          <div key={`fib-${qIndex}`} className="bg-gray-50 p-4 rounded-lg shadow-sm">
-            <p className="font-semibold text-gray-700 mb-2">Fill-in-Blank Question {qIndex + 1}: {q.question}</p>
-            <input
-              type="text"
-              name={`fib_${qIndex}`}
-              value={userAnswers[`fib_${qIndex}`] || ''}
-              onChange={handleInputChange}
-              disabled={showResults}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            />
-            {!showResults && (
-              <button
-                onClick={() => handleGetHint('fib', qIndex, q.question)}
-                disabled={hintLoading[`fib_${qIndex}`]}
-                className="mt-2 bg-yellow-400 hover:bg-yellow-500 text-white text-sm font-bold py-1 px-3 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {hintLoading[`fib_${qIndex}`] ? 'Loading Hint...' : '✨ Get Hint'}
-              </button>
-            )}
-            {hints[`fib_${qIndex}`] && !showResults && (
-              <p className="text-sm mt-2 p-2 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-md">
-                Hint: {hints[`fib_${qIndex}`]}
-              </p>
-            )}
-            {showResults && (
-              <p className="text-sm mt-2">
-                Your Answer: <span className={`${userAnswers[`fib_${qIndex}`].toLowerCase().trim() === q.answer.toLowerCase().trim() ? 'text-green-600' : 'text-red-600'} font-semibold`}>{userAnswers[`fib_${qIndex}`] || 'N/A'}</span>.
-                Correct Answer: <span className="text-green-600 font-semibold">{q.answer}</span>
-              </p>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {!showResults ? (
-        <div className="flex justify-between mt-8">
-          <BackButton onClick={onBack} />
-          <button
-            onClick={handleSubmit}
-            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-          >
-            Submit Answers
-          </button>
-        </div>
-      ) : (
-        <div className="mt-8 text-center">
-          <p className="text-2xl font-bold text-gray-800 mb-4">Your Score: {score} / 5</p>
-          <div className="flex justify-between mt-4">
-            <BackButton onClick={onBack} />
-            <button
-              onClick={() => onComplete(score)}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-            >
-              Next Checkpoint
+        {loading ? (
+          <LoadingSpinner />
+        ) : showResults ? (
+          <div className="feedback feedback-success">
+            <h3>Results</h3>
+            <p>Your score: {score} out of {Object.keys(questions.mc_questions).length + questions.fill_in_blanks.length}</p>
+            <button onClick={onComplete} className="btn btn-primary">
+              Continue
             </button>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="quiz-container">
+            {questions?.mc_questions.map((q, index) => (
+              <div key={index} className="question">
+                <p>{q.question}</p>
+                <div className="options">
+                  {Object.entries(q.options).map(([key, value]) => (
+                    <div
+                      key={key}
+                      className={`option ${userAnswers[`mc_${index}`] === key ? 'selected' : ''}`}
+                      onClick={() => handleInputChange({ target: { name: `mc_${index}`, value: key } })}
+                    >
+                      {key}: {value}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => handleGetHint('mc', index, q.question, q.options)}
+                  className="btn btn-outline"
+                  disabled={hintLoading[`mc_${index}`]}
+                >
+                  {hintLoading[`mc_${index}`] ? 'Loading...' : 'Get Hint'}
+                </button>
+                {hints[`mc_${index}`] && (
+                  <div className="feedback">
+                    <p>{hints[`mc_${index}`]}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {questions?.fill_in_blanks.map((q, index) => (
+              <div key={index} className="question">
+                <p>{q.question}</p>
+                <input
+                  type="text"
+                  name={`fill_${index}`}
+                  value={userAnswers[`fill_${index}`] || ''}
+                  onChange={handleInputChange}
+                  className="form-input"
+                />
+                <button
+                  onClick={() => handleGetHint('fib', index, q.question)}
+                  className="btn btn-outline"
+                  disabled={hintLoading[`fib_${index}`]}
+                >
+                  {hintLoading[`fib_${index}`] ? 'Loading...' : 'Get Hint'}
+                </button>
+                {hints[`fib_${index}`] && (
+                  <div className="feedback">
+                    <p>{hints[`fib_${index}`]}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <div className="nav">
+              <BackButton onClick={onBack} />
+              <button onClick={handleSubmit} className="btn btn-primary">
+                Submit
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
       {message && <MessageBox message={message} onClose={() => setMessage(null)} />}
     </div>
   );
@@ -846,92 +800,53 @@ const Checkpoint2 = ({ selectedPeriod, onComplete, onBack }) => {
     }
   };
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
-
-  if (!statements) {
-    return (
-      <div className="p-6 bg-white rounded-lg shadow-xl max-w-3xl mx-auto my-8 text-center">
-        <p className="text-red-600 text-lg mb-4">Error: Could not load statements for this period. Please check your API key and try again.</p>
-        <BackButton onClick={onBack} />
-        {message && <MessageBox message={message} onClose={() => setMessage(null)} />}
-      </div>
-    );
-  }
-
   return (
-    <div className="p-6 bg-white rounded-lg shadow-xl max-w-3xl mx-auto my-8">
-      <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Checkpoint 2: Identify the Error</h2>
-      <p className="text-center text-gray-600 mb-6">Period: <span className="font-semibold">{selectedPeriod}</span></p>
+    <div className="container fade-in">
+      <div className="card">
+        <h2>Checkpoint 2: True/False Analysis</h2>
+        <p className="text-light">Evaluate statements about {selectedPeriod}</p>
 
-      <div className="space-y-6 mb-8">
-        {statements.statements.map((s, index) => (
-          <div key={`stmt-${index}`} className="bg-gray-50 p-4 rounded-lg shadow-sm">
-            <p className="font-semibold text-gray-700 mb-2">Statement {index + 1}: {s.statement}</p>
-            <div className="flex items-center space-x-4">
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  name={`stmt_${index}`}
-                  value="true"
-                  onChange={() => handleTrueFalseChange(index, 'true')}
-                  checked={userAnswers[index]?.isTrue === true}
-                  disabled={showResults}
-                  className="form-radio text-blue-600"
-                />
-                <span className="ml-2 text-gray-600">True</span>
-              </label>
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  name={`stmt_${index}`}
-                  value="false"
-                  onChange={() => handleTrueFalseChange(index, 'false')}
-                  checked={userAnswers[index]?.isTrue === false}
-                  disabled={showResults}
-                  className="form-radio text-blue-600"
-                />
-                <span className="ml-2 text-gray-600">False</span>
-              </label>
-            </div>
-            {showResults && (
-              <p className="text-sm mt-2">
-                Your Answer: <span className={`${userAnswers[index]?.isTrue === s.is_true ? 'text-green-600' : 'text-red-600'} font-semibold`}>{userAnswers[index]?.isTrue === true ? 'True' : userAnswers[index]?.isTrue === false ? 'False' : 'N/A'}</span>.
-                Correct Answer: <span className="text-green-600 font-semibold">{s.is_true ? 'True' : 'False'}</span>
-                {!s.is_true && (
-                  <span className="ml-2 text-sm"> (Correct Value: <span className="text-green-600 font-semibold">{s.correct_value_if_false}</span>)</span>
-                )}
-              </p>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {!showResults ? (
-        <div className="flex justify-between mt-8">
-          <BackButton onClick={onBack} />
-          <button
-            onClick={handleSubmit}
-            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-          >
-            Submit Answers
-          </button>
-        </div>
-      ) : (
-        <div className="mt-8 text-center">
-          <p className="text-2xl font-bold text-gray-800 mb-4">Your Score: {score} / 3</p>
-          <div className="flex justify-between mt-4">
-            <BackButton onClick={onBack} />
-            <button
-              onClick={() => onComplete(score)}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-            >
-              Next Checkpoint
+        {loading ? (
+          <LoadingSpinner />
+        ) : showResults ? (
+          <div className="feedback feedback-success">
+            <h3>Results</h3>
+            <p>Your score: {score} out of {statements.length}</p>
+            <button onClick={onComplete} className="btn btn-primary">
+              Continue
             </button>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="quiz-container">
+            {statements.map((statement, index) => (
+              <div key={index} className="question">
+                <p>{statement.statement}</p>
+                <div className="options">
+                  <button
+                    className={`btn ${userAnswers[index] === true ? 'btn-primary' : 'btn-outline'}`}
+                    onClick={() => handleTrueFalseChange(index, true)}
+                  >
+                    True
+                  </button>
+                  <button
+                    className={`btn ${userAnswers[index] === false ? 'btn-primary' : 'btn-outline'}`}
+                    onClick={() => handleTrueFalseChange(index, false)}
+                  >
+                    False
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <div className="nav">
+              <BackButton onClick={onBack} />
+              <button onClick={handleSubmit} className="btn btn-primary">
+                Submit
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
       {message && <MessageBox message={message} onClose={() => setMessage(null)} />}
     </div>
   );
@@ -939,36 +854,67 @@ const Checkpoint2 = ({ selectedPeriod, onComplete, onBack }) => {
 
 const Checkpoint3 = ({ selectedPeriod, onComplete, onBack }) => {
   const { db, userId } = useContext(FirebaseContext);
-  const aspects = ['Political', 'Economic', 'Social/Cultural/Educational', 'Diplomatic', 'Military']; // All aspects
-  const [randomAspect, setRandomAspect] = useState('');
-  const [userAnswer, setUserAnswer] = useState('');
-  const [feedback, setFeedback] = useState(null); // { score: '👍👍👍👍', comment: '...', correct_answer: '...' }
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
-  const [outline, setOutline] = useState(null); // State for AI-generated outline
-  const [outlineLoading, setOutlineLoading] = useState(false); // State for outline loading
+  const [essay, setEssay] = useState('');
+  const [outline, setOutline] = useState(null);
+  const [outlineLoading, setOutlineLoading] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+  const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
-    // Randomly select an aspect
-    const chosenAspect = aspects[Math.floor(Math.random() * aspects.length)];
-    setRandomAspect(chosenAspect);
+    const initializeCheckpoint = async () => {
+      try {
+        // Randomly select an aspect
+        const chosenAspect = ['Political', 'Economic', 'Social/Cultural/Educational', 'Diplomatic', 'Military'][Math.floor(Math.random() * 5)];
+        const periodContent = historicalContent[selectedPeriod];
+        const modernizationDef = modernizationCriteria[chosenAspect.toLowerCase().replace(/\//g, '_')];
+
+        const prompt = `Generate a concise outline or key points for an essay answering the question:
+            "To what extent was ${selectedPeriod} effective in modernizing China in the ${chosenAspect} aspect?"
+            
+            Focus on providing a structure with main arguments and relevant examples based on the following information:
+            
+            Historical Period Content:
+            ${periodContent.summary}
+            ${periodContent[chosenAspect.toLowerCase().replace(/\//g, '_')] || ''}
+            
+            Modernization Criteria for ${chosenAspect}:
+            ${modernizationDef}
+            
+            Format the outline clearly with bullet points or numbered lists.`;
+
+        const generatedOutline = await callFireworksAPI(prompt);
+        if (generatedOutline) {
+          setOutline(generatedOutline);
+        } else {
+          setMessage("Failed to generate outline. Please ensure your Fireworks API key is correctly set.");
+        }
+      } catch (error) {
+        setMessage("Error initializing checkpoint: " + error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeCheckpoint();
   }, [selectedPeriod]);
 
   const handleGetOutline = async () => {
     setOutlineLoading(true);
     const periodContent = historicalContent[selectedPeriod];
-    const modernizationDef = modernizationCriteria[randomAspect.toLowerCase().replace(/\//g, '_')];
+    const modernizationDef = modernizationCriteria[selectedPeriod.toLowerCase().replace(/\//g, '_')];
 
     const prompt = `Generate a concise outline or key points for an essay answering the question:
-        "To what extent was ${selectedPeriod} effective in modernizing China in the ${randomAspect} aspect?"
+        "To what extent was ${selectedPeriod} effective in modernizing China in the ${selectedPeriod} aspect?"
         
         Focus on providing a structure with main arguments and relevant examples based on the following information:
         
         Historical Period Content:
         ${periodContent.summary}
-        ${periodContent[randomAspect.toLowerCase().replace(/\//g, '_')] || ''}
+        ${periodContent[selectedPeriod.toLowerCase().replace(/\//g, '_')] || ''}
         
-        Modernization Criteria for ${randomAspect}:
+        Modernization Criteria for ${selectedPeriod}:
         ${modernizationDef}
         
         Format the outline clearly with bullet points or numbered lists.`;
@@ -983,19 +929,19 @@ const Checkpoint3 = ({ selectedPeriod, onComplete, onBack }) => {
   };
 
   const handleSubmit = async () => {
-    if (!userAnswer.trim()) {
-      setMessage("Please write your answer before submitting.");
+    if (!essay.trim()) {
+      setMessage("Please write your essay before submitting.");
       return;
     }
 
     setLoading(true);
     const periodContent = historicalContent[selectedPeriod];
-    const modernizationDef = modernizationCriteria[randomAspect.toLowerCase().replace(/\//g, '_')];
+    const modernizationDef = modernizationCriteria[selectedPeriod.toLowerCase().replace(/\//g, '_')];
 
     const prompt = `You are a DSE History teacher. Assess the following student answer for the question:
-        "To what extent was ${selectedPeriod} effective in modernizing China in the ${randomAspect} aspect?"
+        "To what extent was ${selectedPeriod} effective in modernizing China in the ${selectedPeriod} aspect?"
         
-        Student's Answer: "${userAnswer}"
+        Student's Answer: "${essay}"
         
         Evaluate it based on these criteria:
         1. Clear topic sentence (effective or not, and to what extent).
@@ -1003,13 +949,13 @@ const Checkpoint3 = ({ selectedPeriod, onComplete, onBack }) => {
         3. Provide good explanation about how the examples imply the effectiveness of the chosen historical period in modernizing China.
         4. Good language and structured presentation.
         
-        Provide a score using thumb-up emojis (4 is good, 1 is not good, e.g., "👍👍👍👍") and a detailed comment for each criterion. Also, provide a comprehensive 'correct answer' in paragraph format for the question, drawing from the following historical knowledge about "${selectedPeriod}" and the general modernization criteria for "${randomAspect}":
+        Provide a score using thumb-up emojis (4 is good, 1 is not good, e.g., "👍👍👍👍") and a detailed comment for each criterion. Also, provide a comprehensive 'correct answer' in paragraph format for the question, drawing from the following historical knowledge about "${selectedPeriod}" and the general modernization criteria for "${selectedPeriod}":
         
         Historical Period Content:
         ${periodContent.summary}
-        ${periodContent[randomAspect.toLowerCase().replace(/\//g, '_')] || ''}
+        ${periodContent[selectedPeriod.toLowerCase().replace(/\//g, '_')] || ''}
         
-        Modernization Criteria for ${randomAspect}:
+        Modernization Criteria for ${selectedPeriod}:
         ${modernizationDef}
         
         Structure your response as JSON.
@@ -1040,8 +986,8 @@ const Checkpoint3 = ({ selectedPeriod, onComplete, onBack }) => {
         try {
           await setDoc(docRef, {
             checkpoint3: {
-              question: { period: selectedPeriod, aspect: randomAspect },
-              userAnswer: userAnswer,
+              question: { period: selectedPeriod, aspect: selectedPeriod },
+              userAnswer: essay,
               feedback: generatedFeedback,
               timestamp: new Date()
             }
@@ -1058,79 +1004,59 @@ const Checkpoint3 = ({ selectedPeriod, onComplete, onBack }) => {
   };
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow-xl max-w-4xl mx-auto my-8">
-      <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Checkpoint 3: Analytical Essay</h2>
-      <p className="text-center text-gray-600 mb-6">Period: <span className="font-semibold">{selectedPeriod}</span></p>
+    <div className="container fade-in">
+      <div className="card">
+        <h2>Checkpoint 3: Essay Writing</h2>
+        <p className="text-light">Write an essay about {selectedPeriod}</p>
 
-      <div className="bg-blue-50 p-4 rounded-lg shadow-sm mb-6">
-        <p className="font-semibold text-blue-800 text-lg mb-2">Question:</p>
-        <p className="text-blue-700">
-          To what extent was <span className="font-bold">{selectedPeriod}</span> effective in modernizing China in the <span className="font-bold">{randomAspect} aspect</span>?
-        </p>
-      </div>
+        {loading ? (
+          <LoadingSpinner />
+        ) : showResults ? (
+          <div className="feedback feedback-success">
+            <h3>Feedback</h3>
+            <div className="feedback-content">
+              {feedback}
+            </div>
+            <button onClick={onComplete} className="btn btn-primary">
+              Continue
+            </button>
+          </div>
+        ) : (
+          <div className="quiz-container">
+            <div className="form-group">
+              <label className="form-label">Your Essay</label>
+              <textarea
+                value={essay}
+                onChange={(e) => setEssay(e.target.value)}
+                className="form-input"
+                rows="10"
+                placeholder="Write your essay here..."
+              />
+            </div>
 
-      <div className="mb-4">
-        <button
-          onClick={handleGetOutline}
-          disabled={outlineLoading || feedback}
-          className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {outlineLoading ? 'Generating Outline...' : '✨ Get Outline Help'}
-        </button>
-        {outline && !feedback && (
-          <div className="mt-4 p-4 bg-purple-100 border-l-4 border-purple-500 text-purple-800 rounded-md whitespace-pre-wrap">
-            <h4 className="font-semibold mb-2">Essay Outline Suggestion:</h4>
-            {outline}
+            <div className="nav">
+              <BackButton onClick={onBack} />
+              <button onClick={handleGetOutline} className="btn btn-outline">
+                Get Outline Help
+              </button>
+              <button onClick={handleSubmit} className="btn btn-primary">
+                Submit
+              </button>
+            </div>
+
+            {outline && (
+              <div className="feedback">
+                <h3>Suggested Outline</h3>
+                <p>{outline}</p>
+              </div>
+            )}
           </div>
         )}
       </div>
-
-      <textarea
-        className="w-full p-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-64 resize-y text-gray-800"
-        placeholder="Write your answer here..."
-        value={userAnswer}
-        onChange={(e) => setUserAnswer(e.target.value)}
-        disabled={loading || feedback}
-      ></textarea>
-
-      {!feedback ? (
-        <div className="flex justify-between mt-8">
-          <BackButton onClick={onBack} />
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Submitting...' : 'Submit Answer'}
-          </button>
-        </div>
-      ) : (
-        <div className="mt-8">
-          <h3 className="text-2xl font-bold text-gray-800 mb-4">Your Feedback:</h3>
-          <div className="bg-gray-50 p-4 rounded-lg shadow-sm mb-4">
-            <p className="text-lg font-semibold text-gray-700 mb-2">Score: <span className="text-yellow-500 text-2xl">{feedback.score} out of 4 thumb-up marks</span></p>
-            <p className="text-gray-700 whitespace-pre-wrap">{feedback.comment}</p>
-          </div>
-          <div className="bg-blue-50 p-4 rounded-lg shadow-sm">
-            <h4 className="text-lg font-semibold text-blue-800 mb-2">Correct Answer:</h4>
-            <p className="text-blue-700 whitespace-pre-wrap">{feedback.correct_answer}</p>
-          </div>
-          <div className="flex justify-between mt-8">
-            <BackButton onClick={onBack} />
-            <button
-              onClick={() => onComplete()}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-            >
-              Finish Challenge
-            </button>
-          </div>
-        </div>
-      )}
       {message && <MessageBox message={message} onClose={() => setMessage(null)} />}
     </div>
   );
 };
-
 
 const App = () => {
   const { db, userId, isAuthReady } = useContext(FirebaseContext);
@@ -1187,7 +1113,6 @@ const App = () => {
     setLoadingFinalFeedback(false);
   };
 
-
   const handleBack = () => {
     if (currentPage === 'checkpoint1') {
       setCurrentPage('home');
@@ -1212,7 +1137,6 @@ const App = () => {
       setMessage("Please select a historical period first from the home page.");
     }
   };
-
 
   const handleExportSummaryAsText = async () => {
     if (!db || !userId || !selectedPeriod) {
@@ -1296,7 +1220,6 @@ const App = () => {
       setMessage("Failed to export summary. Please check console for details.");
     }
   };
-
 
   if (!isAuthReady) {
     return (
