@@ -333,12 +333,11 @@ const callFireworksAPI = async (prompt, schema = null) => {
     payload.response_format = { type: "json_object" };
   }
 
-  // IMPORTANT: Replace "YOUR_FIREWORKS_API_KEY_HERE" with your actual Fireworks API key.
-  const apiKey = "YOUR_FIREWORKS_API_KEY_HERE";
+  const apiKey = process.env.REACT_APP_FIREWORKS_API_KEY;
   const apiUrl = "https://api.fireworks.ai/inference/v1/chat/completions";
 
-  if (!apiKey || apiKey === "YOUR_FIREWORKS_API_KEY_HERE") {
-    console.error("Fireworks API Key is missing or not set. Please replace 'YOUR_FIREWORKS_API_KEY_HERE' in the code.");
+  if (!apiKey) {
+    console.error("Fireworks API Key is missing or not set. Please check your environment variables.");
     return null;
   }
 
