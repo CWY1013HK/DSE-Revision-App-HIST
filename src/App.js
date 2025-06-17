@@ -314,7 +314,7 @@ China's international standing significantly improved.`,
 // --- Helper Functions for LLM Calls ---
 const callFireworksAPI = async (prompt, schema = null) => {
   const payload = {
-    model: "accounts/pshe/deployedModels/tamed-llama-70b-hm3qog7e",
+    model: "accounts/pshe/deployedModels/llama-v3p1-8b-instruct-k8nueweh",
     max_tokens: 4000,
     top_p: 1,
     top_k: 40,
@@ -400,7 +400,7 @@ const BackButton = ({ onClick }) => (
 
 const LoadingSpinner = () => (
   <div style={{ minHeight: '100%', width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 m-20"></div>
     <p className="text-lg text-gray-700">Loading...</p>
   </div>
 );
@@ -604,7 +604,122 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
     questions.fill_in_blanks.forEach((q, index) => {
       const userAnswer = userAnswers[`fib_${index}`].trim();
       allAnswers[`fib_${index}`] = userAnswer;
-      if (userAnswer.toLowerCase() === q.answer.toLowerCase().trim()) {
+
+      // Normalize both answers for comparison
+      const normalizeAnswer = (answer) => {
+        // Common abbreviations mapping
+        const abbreviations = {
+          'ccp': 'chinese communist party',
+          'kmt': 'kuomintang',
+          'prc': 'peoples republic of china',
+          'roc': 'republic of china',
+          'pla': 'peoples liberation army',
+          'sez': 'special economic zone',
+          'dynasty': 'dyn',
+          'dynasty': 'dyn',
+          'movement': 'mov',
+          'revolution': 'rev',
+          'government': 'govt',
+          'century': 'c',
+          'centuries': 'c',
+          'year': 'yr',
+          'years': 'yrs',
+          'period': 'per',
+          'periods': 'per',
+          'reform': 'ref',
+          'reforms': 'ref',
+          'modernization': 'mod',
+          'modernization': 'mod',
+          'industrialization': 'ind',
+          'industrialization': 'ind',
+          'political': 'pol',
+          'economic': 'econ',
+          'social': 'soc',
+          'cultural': 'cult',
+          'educational': 'edu',
+          'diplomatic': 'dipl',
+          'military': 'mil'
+        };
+
+        // Convert written numbers to digits
+        const writtenNumbers = {
+          'zero': '0',
+          'one': '1',
+          'two': '2',
+          'three': '3',
+          'four': '4',
+          'five': '5',
+          'six': '6',
+          'seven': '7',
+          'eight': '8',
+          'nine': '9',
+          'ten': '10',
+          'eleven': '11',
+          'twelve': '12',
+          'thirteen': '13',
+          'fourteen': '14',
+          'fifteen': '15',
+          'sixteen': '16',
+          'seventeen': '17',
+          'eighteen': '18',
+          'nineteen': '19',
+          'twenty': '20',
+          'thirty': '30',
+          'forty': '40',
+          'fifty': '50',
+          'sixty': '60',
+          'seventy': '70',
+          'eighty': '80',
+          'ninety': '90',
+          'hundred': '100',
+          'thousand': '1000'
+        };
+
+        let normalized = answer
+          .toLowerCase()
+          .trim()
+          // Remove punctuation except for numbers
+          .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '')
+          // Replace multiple spaces with single space
+          .replace(/\s+/g, ' ');
+
+        // Replace written numbers with digits
+        Object.entries(writtenNumbers).forEach(([word, num]) => {
+          normalized = normalized.replace(new RegExp(`\\b${word}\\b`, 'g'), num);
+        });
+
+        // Replace abbreviations
+        Object.entries(abbreviations).forEach(([abbr, full]) => {
+          normalized = normalized.replace(new RegExp(`\\b${abbr}\\b`, 'g'), full);
+        });
+
+        // Remove common words that don't affect meaning
+        const commonWords = [
+          'the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
+          'from', 'and', 'or', 'but', 'if', 'then', 'else', 'when', 'up', 'down',
+          'over', 'under', 'above', 'below', 'between', 'among', 'through',
+          'during', 'before', 'after', 'while', 'since', 'until', 'unless',
+          'because', 'although', 'though', 'despite', 'regarding', 'concerning',
+          'about', 'around', 'near', 'far', 'away', 'back', 'forward', 'upward',
+          'downward', 'outward', 'inward', 'this', 'that', 'these', 'those',
+          'which', 'who', 'whom', 'whose', 'what', 'where', 'when', 'why', 'how'
+        ];
+
+        commonWords.forEach(word => {
+          normalized = normalized.replace(new RegExp(`\\b${word}\\b`, 'g'), '');
+        });
+
+        // Final cleanup
+        return normalized
+          .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+          .trim();
+      };
+
+      const normalizedUserAnswer = normalizeAnswer(userAnswer);
+      const normalizedCorrectAnswer = normalizeAnswer(q.answer);
+
+      // Check if the normalized answers match
+      if (normalizedUserAnswer === normalizedCorrectAnswer) {
         currentScore++;
       }
     });
@@ -774,7 +889,7 @@ const Checkpoint2 = ({ selectedPeriod, onComplete, onBack }) => {
         historicalContent[selectedPeriod].economic + " " +
         historicalContent[selectedPeriod].social_cultural_educational;
 
-      const prompt = `Generate 3 historical statements about the "${selectedPeriod}" in Chinese history. Each statement MUST contain an intentional factual error (e.g., wrong year, historical person, organization name, policy name, or a false assertion). For each statement, indicate if it is "true" or "false" and provide the correct value if it's false. The content should be based on the following historical information:
+      const prompt = `Generate 3 historical statements about the "${selectedPeriod}" in Chinese history. Each statement MUST contain an intentional factual error (e.g., wrong year, historical person, organization name, policy name, or a false assertion). All statements should be FALSE, and for each statement, provide the correct historical fact. The content should be based on the following historical information:
           
           ${content}
           
@@ -785,7 +900,7 @@ const Checkpoint2 = ({ selectedPeriod, onComplete, onBack }) => {
             "statements": [
               {
                 "statement": "string",
-                "is_true": "boolean",
+                "is_true": false,
                 "correct_value_if_false": "string"
               }
             ]
@@ -800,10 +915,10 @@ const Checkpoint2 = ({ selectedPeriod, onComplete, onBack }) => {
               type: "OBJECT",
               properties: {
                 statement: { type: "STRING" },
-                is_true: { type: "BOOLEAN" },
+                is_true: { type: "BOOLEAN", enum: [false] },
                 correct_value_if_false: { type: "STRING" }
               },
-              required: ["statement", "is_true"]
+              required: ["statement", "is_true", "correct_value_if_false"]
             }
           }
         },
@@ -816,7 +931,7 @@ const Checkpoint2 = ({ selectedPeriod, onComplete, onBack }) => {
         // Initialize user answers
         const initialAnswers = {};
         generatedStatements.statements.forEach((_, index) => {
-          initialAnswers[index] = { isTrue: null };
+          initialAnswers[index] = { isTrue: false };
         });
         setUserAnswers(initialAnswers);
       } else {
@@ -839,7 +954,8 @@ const Checkpoint2 = ({ selectedPeriod, onComplete, onBack }) => {
     let currentScore = 0;
     const allAnswers = {};
 
-    statements.statements.forEach((s, index) => {
+    // Only check the first 3 statements that are displayed
+    statements.statements.slice(0, 3).forEach((s, index) => {
       const userAnswer = userAnswers[index];
       allAnswers[index] = userAnswer;
 
@@ -858,7 +974,7 @@ const Checkpoint2 = ({ selectedPeriod, onComplete, onBack }) => {
       try {
         await setDoc(docRef, {
           checkpoint2: {
-            statements: statements,
+            statements: statements.statements.slice(0, 3), // Only save the displayed statements
             userAnswers: allAnswers,
             score: currentScore,
             timestamp: new Date()
@@ -973,6 +1089,36 @@ const Checkpoint3 = ({ selectedPeriod, onComplete, onBack }) => {
   const [outline, setOutline] = useState(null); // State for AI-generated outline
   const [outlineLoading, setOutlineLoading] = useState(false); // State for outline loading
 
+  // Update formatOutline function
+  const formatOutline = (text) => {
+    if (!text) return '';
+
+    // Split the text into lines
+    const lines = text.split('\n');
+
+    // Process each line
+    return lines.map(line => {
+      // If line is empty, return a line break
+      if (!line.trim()) return '*';
+
+      // Clean up any existing markdown symbols
+      line = line.replace(/\*\*/g, '').replace(/\*/g, '');
+
+      // If line starts with a number or bullet point, it's a title
+      if (/^(\d+\.|\*|\-)\s/.test(line)) {
+        return `**${line}**`;
+      }
+
+      // If line starts with a plus sign or other bullet, it's a sub-point
+      if (/^(\+|\-|\*)\s/.test(line)) {
+        return line.replace(/^(\+|\-|\*)\s/, '• ');
+      }
+
+      // Otherwise, it's a regular line
+      return line;
+    }).join('\n');
+  };
+
   useEffect(() => {
     // Randomly select an aspect
     const chosenAspect = aspects[Math.floor(Math.random() * aspects.length)];
@@ -996,7 +1142,12 @@ const Checkpoint3 = ({ selectedPeriod, onComplete, onBack }) => {
         Modernization Criteria for ${randomAspect}:
         ${modernizationDef}
         
-        Format the outline clearly with bullet points or numbered lists.`;
+        Format the outline with:
+        1. Main points should be numbered (1., 2., etc.)
+        2. Sub-points should use bullet points (* or -)
+        3. Each point should be on a new line
+        4. Use clear, concise language
+        5. No text before nor after outline proper`;
 
     const generatedOutline = await callFireworksAPI(prompt);
     if (generatedOutline) {
@@ -1103,9 +1254,28 @@ const Checkpoint3 = ({ selectedPeriod, onComplete, onBack }) => {
           {outlineLoading ? 'Generating Outline...' : '✨ Get Outline Help'}
         </button>
         {outline && !feedback && (
-          <div className="mt-4 p-4 bg-purple-100 border-l-4 border-purple-500 text-purple-800 rounded-md whitespace-pre-wrap pb-3">
+          <div className="mt-4 p-4 bg-purple-100 border-l-4 border-purple-500 text-purple-800 rounded-md whitespace-pre-wrap pb-6">
             <h4 className="font-semibold mb-2">Essay Outline Suggestion:</h4>
-            {outline}
+            {formatOutline(outline).split('\n').map((line, index) => {
+              if (line === '*') {
+                return <br key={index} />;
+              }
+              if (line.startsWith('**') && line.endsWith('**')) {
+                return (
+                  <p key={index} className="font-bold text-purple-900 mt-2">
+                    {line.slice(2, -2)}
+                  </p>
+                );
+              }
+              if (line.startsWith('•')) {
+                return (
+                  <p key={index} className="ml-4 text-purple-800">
+                    {line}
+                  </p>
+                );
+              }
+              return <p key={index} className="text-purple-800">{line}</p>;
+            })}
           </div>
         )}
       </div>
