@@ -314,8 +314,8 @@ China's international standing significantly improved.`,
 // --- Helper Functions for LLM Calls ---
 const callFireworksAPI = async (prompt, schema = null) => {
   const payload = {
-    model: "accounts/pshe/deployedModels/llama-v3p1-8b-instruct-k8nueweh",
-    max_tokens: 16384,
+    model: "accounts/pshe/deployedModels/tamed-llama-70b-hm3qog7e",
+    max_tokens: 4000,
     top_p: 1,
     top_k: 40,
     presence_penalty: 0,
@@ -399,14 +399,14 @@ const BackButton = ({ onClick }) => (
 );
 
 const LoadingSpinner = () => (
-  <div className="flex justify-center items-center py-8">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-    <p className="ml-4 text-lg text-gray-700">Loading...</p>
+  <div style={{ minHeight: '100%', width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
+    <p className="text-lg text-gray-700">Loading...</p>
   </div>
 );
 
 const MessageBox = ({ message, onClose, content = null }) => (
-  <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
+  <div className="fixed inset-0 min-h-screen w-screen bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
     <div className="bg-white p-6 rounded-lg shadow-xl max-w-lg w-full text-center">
       <p className="text-lg font-semibold mb-4">{message}</p>
       {content && (
@@ -563,11 +563,20 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
 
   const handleGetHint = async (questionType, index, questionText, options = null) => {
     setHintLoading(prev => ({ ...prev, [`${questionType}_${index}`]: true }));
-    let hintPrompt = `Provide a subtle hint for the following DSE History question about "${selectedPeriod}":\n\nQuestion: ${questionText}\nDo not include any text before or after the hint, nor the answer word.`;
+    let answer = null;
+    if (questionType === 'mc' && questions && questions.mc_questions && questions.mc_questions[index]) {
+      answer = questions.mc_questions[index].answer;
+    } else if (questionType === 'fib' && questions && questions.fill_in_blanks && questions.fill_in_blanks[index]) {
+      answer = questions.fill_in_blanks[index].answer;
+    }
+    let hintPrompt = `Provide a subtle hint for the following DSE History question about "${selectedPeriod}":\n\nQuestion: ${questionText}\n`;
     if (options) {
       hintPrompt += `Options: A) ${options.A} B) ${options.B} C) ${options.C} D) ${options.D}\n`;
     }
-    hintPrompt += `The hint should guide the student without revealing the direct answer. Focus on a related concept or a key event from the period. No quotation marks.`;
+    if (answer) {
+      hintPrompt += `Answer: ${answer}\n`;
+    }
+    hintPrompt += `The hint should guide the student without revealing the direct answer. Focus on a related concept or a key event from the period. No text before or after the hint. No quotation marks.`;
 
     const hint = await callFireworksAPI(hintPrompt);
     if (hint) {
@@ -577,7 +586,6 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
     }
     setHintLoading(prev => ({ ...prev, [`${questionType}_${index}`]: false }));
   };
-
 
   const handleSubmit = async () => {
     let currentScore = 0;
@@ -639,8 +647,8 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
 
   return (
     <div className="p-6 bg-white rounded-lg shadow-xl max-w-3xl mx-auto my-8">
-      <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Checkpoint 1: Hard Knowledge</h2>
-      <p className="text-center text-gray-600 mb-6">Period: <span className="font-semibold">{selectedPeriod}</span></p>
+      <h2 className="text-3xl font-bold text-center text-gray-800 mb-3">Checkpoint 1: Hard Knowledge</h2>
+      <p className="text-center text-gray-600 mt-3 mb-6">Period: <span className="font-semibold">{selectedPeriod}</span></p>
 
       <div className="space-y-6 mb-8">
         {questions.mc_questions.map((q, qIndex) => (
@@ -725,7 +733,7 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
           <BackButton onClick={onBack} />
           <button
             onClick={handleSubmit}
-            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
           >
             Submit Answers
           </button>
@@ -879,15 +887,15 @@ const Checkpoint2 = ({ selectedPeriod, onComplete, onBack }) => {
 
   return (
     <div className="p-6 bg-white rounded-lg shadow-xl max-w-3xl mx-auto my-8">
-      <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Checkpoint 2: Identify the Error</h2>
-      <p className="text-center text-gray-600 mb-6">Period: <span className="font-semibold">{selectedPeriod}</span></p>
+      <h2 className="text-3xl font-bold text-center text-gray-800 mb-3">Checkpoint 2: Identify the Error</h2>
+      <p className="text-center text-gray-600 mt-3 mb-6">Period: <span className="font-semibold">{selectedPeriod}</span></p>
 
-      <div className="space-y-6 mb-8">
-        {statements.statements.map((s, index) => (
-          <div key={`stmt-${index}`} className="bg-gray-50 p-4 rounded-lg shadow-sm">
+      <div className="space-y-6 mb-8 flex flex-row flex-wrap gap-6">
+        {statements.statements.slice(0, 3).map((s, index) => (
+          <div key={`stmt-${index}`} className="bg-gray-50 p-4 rounded-lg shadow-sm flex-1 min-w-[300px] max-w-[450px]">
             <p className="font-semibold text-gray-700 mb-2">Statement {index + 1}: {s.statement}</p>
-            <div className="flex items-center space-x-4">
-              <label className="inline-flex items-center">
+            <div className="flex flex-row items-center space-x-8">
+              <label className="inline-flex items-center font-semibold text-lg">
                 <input
                   type="radio"
                   name={`stmt_${index}`}
@@ -897,9 +905,9 @@ const Checkpoint2 = ({ selectedPeriod, onComplete, onBack }) => {
                   disabled={showResults}
                   className="form-radio text-blue-600"
                 />
-                <span className="ml-2 text-gray-600">True</span>
+                <span className="ml-2">True</span>
               </label>
-              <label className="inline-flex items-center">
+              <label className="inline-flex items-center font-semibold text-lg">
                 <input
                   type="radio"
                   name={`stmt_${index}`}
@@ -909,7 +917,7 @@ const Checkpoint2 = ({ selectedPeriod, onComplete, onBack }) => {
                   disabled={showResults}
                   className="form-radio text-blue-600"
                 />
-                <span className="ml-2 text-gray-600">False</span>
+                <span className="md:ml-2">False</span>
               </label>
             </div>
             {showResults && (
@@ -930,7 +938,7 @@ const Checkpoint2 = ({ selectedPeriod, onComplete, onBack }) => {
           <BackButton onClick={onBack} />
           <button
             onClick={handleSubmit}
-            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
           >
             Submit Answers
           </button>
@@ -1076,8 +1084,8 @@ const Checkpoint3 = ({ selectedPeriod, onComplete, onBack }) => {
 
   return (
     <div className="p-6 bg-white rounded-lg shadow-xl max-w-4xl mx-auto my-8">
-      <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Checkpoint 3: Analytical Essay</h2>
-      <p className="text-center text-gray-600 mb-6">Period: <span className="font-semibold">{selectedPeriod}</span></p>
+      <h2 className="text-3xl font-bold text-center text-gray-800 mb-3">Checkpoint 3: Analytical Essay</h2>
+      <p className="text-center text-gray-600 mt-3 mb-6">Period: <span className="font-semibold">{selectedPeriod}</span></p>
 
       <div className="bg-blue-50 p-4 rounded-lg shadow-sm mb-6">
         <p className="font-semibold text-blue-800 text-lg mb-2">Question:</p>
@@ -1095,7 +1103,7 @@ const Checkpoint3 = ({ selectedPeriod, onComplete, onBack }) => {
           {outlineLoading ? 'Generating Outline...' : '✨ Get Outline Help'}
         </button>
         {outline && !feedback && (
-          <div className="mt-4 p-4 bg-purple-100 border-l-4 border-purple-500 text-purple-800 rounded-md whitespace-pre-wrap">
+          <div className="mt-4 p-4 bg-purple-100 border-l-4 border-purple-500 text-purple-800 rounded-md whitespace-pre-wrap pb-3">
             <h4 className="font-semibold mb-2">Essay Outline Suggestion:</h4>
             {outline}
           </div>
@@ -1116,7 +1124,7 @@ const Checkpoint3 = ({ selectedPeriod, onComplete, onBack }) => {
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Submitting...' : 'Submit Answer'}
           </button>
@@ -1325,7 +1333,7 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 font-inter text-gray-900 p-4 sm:p-8">
-      <h1 className="text-4xl font-extrabold text-center text-blue-700 mb-8 drop-shadow-lg">
+      <h1 className="text-4xl font-extrabold text-center mb-8" style={{ color: '#3b82f6' }}>
         DSE History Revision App
       </h1>
       {userId && (

@@ -8,6 +8,7 @@ body {
     background-color: #f3f4f6;
     color: #1f2937;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    overflow-x: hidden;
 }
 
 body {
@@ -38,6 +39,8 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    max-width: 100vw;
+    box-sizing: border-box;
 }
 
 .mx-auto {
@@ -165,22 +168,21 @@ body {
 .bg-gray-500 {
     background-color: #6b7280;
     color: white;
-    padding: 0.5rem 2rem;
+    padding: 1rem 2rem;
     border-radius: 0.75rem;
-    font-weight: 600;
+    font-weight: 500;
     font-size: 1rem;
-    border: 1.5px solid #6b7280;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     margin: 0.75rem;
     width: auto;
-    max-width: 100%;
-    transition: background 0.2s, box-shadow 0.2s, border-color 0.2s;
+    min-width: min-content;
+    transition: background 0.2s, box-shadow 0.2s;
 }
 
 .bg-gray-500:hover {
     background-color: #4b5563;
-    border-color: #4b5563;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     color: white;
 }
 
@@ -1223,13 +1225,64 @@ label {
     transition: none;
 }
 
-/* Center loading elements */
+/* Center loading elements in any context */
 .loading-spinner,
 .loading,
 .loader {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
     width: 100%;
     margin: 2rem 0;
+    text-align: center;
+}
+
+/* Center loading elements as direct children of the main container */
+.min-h-screen.bg-gray-100.font-inter.text-gray-900.p-4>.loading-spinner,
+.min-h-screen.bg-gray-100.font-inter.text-gray-900.p-4>.loading,
+.min-h-screen.bg-gray-100.font-inter.text-gray-900.p-4>.loader,
+.min-h-screen.bg-gray-100.font-inter.text-gray-900.p-4.sm\:p-8>.loading-spinner,
+.min-h-screen.bg-gray-100.font-inter.text-gray-900.p-4.sm\:p-8>.loading,
+.min-h-screen.bg-gray-100.font-inter.text-gray-900.p-4.sm\:p-8>.loader {
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+}
+
+/* Ensure consistent box sizing for all elements */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+.hint-box,
+.text-box,
+input[type="text"],
+input[type="number"],
+select,
+textarea {
+    width: 100%;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    display: block;
+}
+
+/* Remove shadow and hover from the final feedback container */
+.p-6.bg-white.rounded-lg.shadow-xl.max-w-3xl.mx-auto.my-8.text-center,
+.p-6.bg-white.rounded-lg.shadow-xl.max-w-3xl.mx-auto.my-8.text-center:hover {
+    box-shadow: none !important;
+    background: white !important;
+    transition: none !important;
+}
+
+/* Remove shadow and hover from the main app container */
+.min-h-screen.bg-gray-100.font-inter.text-gray-900.p-4,
+.min-h-screen.bg-gray-100.font-inter.text-gray-900.p-4:hover,
+.min-h-screen.bg-gray-100.font-inter.text-gray-900.p-4.sm\:p-8,
+.min-h-screen.bg-gray-100.font-inter.text-gray-900.p-4.sm\:p-8:hover {
+    box-shadow: none !important;
+    background: #f3f4f6 !important;
+    border: none !important;
+    transition: none !important;
 }
