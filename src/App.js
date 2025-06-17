@@ -351,12 +351,27 @@ const callFireworksAPI = async (prompt, schema = null) => {
       },
       body: JSON.stringify(payload)
     });
+
+    if (!response.ok) {
+      console.error('Fireworks API response not OK:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('Error response:', errorText);
+      return null;
+    }
+
     const result = await response.json();
+    console.log('Fireworks API response:', result); // Debug log
 
     if (result.choices && result.choices.length > 0 && result.choices[0].message) {
       const text = result.choices[0].message.content;
       if (schema) {
-        return JSON.parse(text);
+        try {
+          return JSON.parse(text);
+        } catch (parseError) {
+          console.error('JSON Parse error:', parseError);
+          console.error('Raw text that failed to parse:', text);
+          return null;
+        }
       }
       return text;
     } else {
@@ -365,6 +380,9 @@ const callFireworksAPI = async (prompt, schema = null) => {
     }
   } catch (error) {
     console.error("Error calling Fireworks API:", error);
+    if (error instanceof SyntaxError) {
+      console.error("JSON Parse error details:", error.message);
+    }
     return null;
   }
 };
@@ -455,9 +473,8 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
       
       ${content}
       
-      Provide the questions and their correct answers in a JSON format.
+      IMPORTANT: Your response must be a valid JSON object following this exact schema. Do not include any text before or after the JSON object. Ensure all strings are properly escaped and the JSON is properly formatted.
       
-      JSON Schema:
       {
         "mc_questions": [
           {
@@ -546,11 +563,11 @@ const Checkpoint1 = ({ selectedPeriod, onComplete, onBack }) => {
 
   const handleGetHint = async (questionType, index, questionText, options = null) => {
     setHintLoading(prev => ({ ...prev, [`${questionType}_${index}`]: true }));
-    let hintPrompt = `Provide a subtle hint for the following DSE History question about "${selectedPeriod}":\n\nQuestion: ${questionText}\n`;
+    let hintPrompt = `Provide a subtle hint for the following DSE History question about "${selectedPeriod}":\n\nQuestion: ${questionText}\nDo not include any text before or after the hint, nor the answer word.`;
     if (options) {
       hintPrompt += `Options: A) ${options.A} B) ${options.B} C) ${options.C} D) ${options.D}\n`;
     }
-    hintPrompt += `The hint should guide the student without revealing the direct answer. Focus on a related concept or a key event from the period.`;
+    hintPrompt += `The hint should guide the student without revealing the direct answer. Focus on a related concept or a key event from the period. No quotation marks.`;
 
     const hint = await callFireworksAPI(hintPrompt);
     if (hint) {
